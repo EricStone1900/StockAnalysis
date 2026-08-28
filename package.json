@@ -1,0 +1,24 @@
+{
+  "name": "stock-analysis-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "lint": "pnpm --recursive --if-present run lint",
+    "typecheck": "pnpm --recursive --if-present run typecheck",
+    "test": "pnpm --recursive --if-present run test",
+    "test:contract": "pnpm --recursive --if-present run test:contract",
+    "test:integration": "pnpm --recursive --if-present run test:integration",
+    "test:e2e": "pnpm --recursive --if-present run test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@types/node": "^22.15.30",
+    "eslint": "^9.30.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.4"
+  }
+}

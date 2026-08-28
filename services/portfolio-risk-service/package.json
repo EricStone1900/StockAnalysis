@@ -1,0 +1,5 @@
+{
+  "name": "@stock/portfolio-risk-service", "version": "0.1.0", "private": true, "type": "module",
+  "scripts": { "dev": "tsx src/bootstrap/main.ts", "lint": "eslint src tests", "typecheck": "tsc --noEmit", "test": "vitest run", "test:integration": "vitest run tests/integration", "test:contract": "vitest run tests/contract" },
+  "dependencies": { "@nestjs/common": "^11.1.1", "@nestjs/core": "^11.1.1", "@nestjs/platform-fastify": "^11.1.1", "@stock/config": "workspace:*", "@stock/observability": "workspace:*" }
+}

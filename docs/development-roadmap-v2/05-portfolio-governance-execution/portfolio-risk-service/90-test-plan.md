@@ -1,0 +1,12 @@
+# portfolio-risk-service测试计划
+
+- Ledger不可变、冲正、费用、现金和公司行动。
+- PortfolioSnapshot原子性、估值和Decimal精度。
+- RiskPolicy版本、单股/行业/总仓位/现金/换手/批次/回撤。
+- 并发expectedVersion、重复命令和重复Fill。
+- 行情缺失、陈旧、超时和恢复。
+- OpenAPI、Portfolio/Risk事件、Outbox/Inbox重放。
+- RBAC：Agent只读，Governance只调用evaluate，Execution只提交Fill事实。
+
+必须包含长期HOLD、零交易、卖出降风险和新增仓位失败关闭场景。
+
