@@ -1,0 +1,3 @@
+exchange,symbol,fact_type,period_end,value,announced_at,available_at,revision
+SSE,600000,revenue,2025-12-31,100,2026-03-01T00:00:00+00:00,2026-03-02T00:00:00+00:00,1
+SSE,600000,revenue,2025-12-31,120,2026-04-01T00:00:00+00:00,2026-04-02T00:00:00+00:00,2

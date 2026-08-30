@@ -1,0 +1,3 @@
+exchange,symbol,action_type,ex_date,available_at,adjustment_factor
+SSE,600000,DIVIDEND,2026-06-20,2026-06-19T08:00:00+00:00,0.98
+SSE,600000,SPLIT,2026-07-01,2026-06-30T08:00:00+00:00,0.50

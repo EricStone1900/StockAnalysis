@@ -1,0 +1,2 @@
+exchange,symbol,trading_day,open,high,low,close,volume,amount,available_at
+SSE,600000,2026-08-28,10,11,9,10.5,1000,10500,2026-08-28T07:00:00+00:00

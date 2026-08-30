@@ -1,0 +1,4 @@
+market,trading_day,is_trading_day,description
+CN_A,2026-08-28,true,normal trading day with lunch break
+CN_A,2026-08-29,false,weekend
+CN_A,2026-10-01,false,national day holiday

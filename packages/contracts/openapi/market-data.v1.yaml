@@ -1,0 +1,9 @@
+openapi: 3.1.0
+info: { title: Market Data API, version: 1.0.0 }
+paths:
+  /api/v1/securities/{symbol}:
+    get: { responses: { '200': { description: Security }, '404': { description: Not found } } }
+  /api/v1/calendars/{market}:
+    get: { responses: { '200': { description: Calendar and sessions } } }
+  /api/v1/data-versions/latest:
+    get: { responses: { '200': { description: Latest READY DataVersion } } }

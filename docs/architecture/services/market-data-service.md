@@ -32,6 +32,12 @@
 
 Provider Adapter 屏蔽各数据源字段和代码差异。业务层禁止直接调用第三方 SDK。
 
+### 3.1 首版数据源策略
+
+正式版v1以`chenditc/investment_data`的固定Release作为A股日频Qlib主输入；BaoStock补充历史估值、交易状态和基础财务指标，AKShare用于财务与公告交叉校验，巨潮资讯保存公告及更正原文，Tushare Pro在具备合法Token和配额时提供结构化修订校验。详细优先级、PIT规则和待实现清单见[阶段02首版数据源策略](../../development-roadmap-v2/02-market-data-service/05-v1-data-source-policy.md)。
+
+补充源只填补明确缺失，不得无记录覆盖主源。跨来源冲突进入版本化对账策略；任何修复、来源切换或Release升级均产生新DataVersion。每个来源必须登记许可、署名、再分发限制、配额与停用方式，开源采集代码的许可证不能替代底层数据授权。
+
 ## 4. 核心数据契约
 
 每条记录必须包含：
@@ -44,8 +50,10 @@ Provider Adapter 屏蔽各数据源字段和代码差异。业务层禁止直接
 - sourceRecordId。
 - dataVersion。
 - qualityStatus。
+- sourceReleaseTag或sourceVersion、rawArtifactUri、rawArtifactHash和licenseRef。
+- 字段级provenance；发生跨来源补全时必须指出原始来源和对账策略版本。
 
-财务数据的 availableAt 使用实际披露时间，不使用报告期结束时间，避免回测未来函数。
+财务数据的 availableAt 使用实际披露时间，不使用报告期结束时间，避免回测未来函数。修订采用追加记录，保存revision、revisionReason和supersedes；只有公告日期而没有时刻时，使用版本化的保守可用时间规则。
 
 ## 5. API
 

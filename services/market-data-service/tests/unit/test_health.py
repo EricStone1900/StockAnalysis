@@ -1,3 +1,5 @@
-from src.main import live
+from main import live
 
-def test_live() -> None: assert live() == {"status": "UP"}
+
+def test_live() -> None:
+    assert live() == {"status": "UP"}

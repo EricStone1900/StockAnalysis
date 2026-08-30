@@ -1,0 +1,46 @@
+# 03-05 Mac开发与Ubuntu交付
+
+## 目标与交付物
+
+阶段03采用“Mac开发验证、Ubuntu最终验收”。实现时必须提供：
+
+- Python 3.12与完整`uv.lock`，不得使用浮动Qlib或数值依赖版本。
+- 可独立构建的`quant-research-service`镜像，Ubuntu宿主端口默认使用`3001`。
+- `scripts/stage03-verify-mac.sh`：Mac静态检查、单元、契约和Fixture E2E。
+- `scripts/stage03-verify-ubuntu.sh`：Ubuntu迁移、集成、Qlib E2E、安全和恢复测试。
+- `scripts/stage03-record-evidence.sh`：输出提交、架构、镜像Digest、迁移、契约、依赖、测试和Hash记录。
+- `infra/compose/docker-compose.stage03-ubuntu.yml`：使用Compose的`!override`替换基础端口列表并仅绑定`127.0.0.1`，使用Docker Secret，不暴露数据库、MinIO、NATS或API到公网。
+- 真实数据证据：固定来源Release、归档/Manifest Hash、DataVersion、来源策略版本、质量/对账报告和许可引用。
+
+这些脚本和Compose文件在阶段03实现期间创建；进入人工验收前必须能够按本文无交互执行。
+
+## Mac本地门禁
+
+1. 使用Python 3.12执行`uv sync --frozen`，确认锁文件未变化。
+2. 执行Ruff、Mypy、分层Pytest以及OpenAPI/AsyncAPI契约测试。
+3. 用固定Fixture DataVersion完成股票池、因子、模型基线、回测和快照最小闭环。
+4. 连续运行两次，确认输入版本、规范内容Hash、排序和业务指标一致。
+5. 构建Linux镜像并做启动检查；若Ubuntu为`amd64`，Mac可额外执行`docker buildx build --platform linux/amd64`，但计算密集型验收仍在Ubuntu原生执行。
+
+Fixture门禁通过后，再使用阶段02发布的固定真实日频DataVersion做Mac必要验证。真实归档由`market-data-service`管理，不提交Git，不通过SCP复制到源码目录；Ubuntu根据DataVersion的Artifact URI读取同一不可变输入。
+
+任一PIT、未来数据、状态门禁、幂等、Artifact Hash或契约测试失败，不得推送验收候选。
+
+## 代码传输原则
+
+以GitHub提交作为唯一传输方式。Mac提交并推送阶段分支，Ubuntu检出明确的Commit SHA；禁止用SCP覆盖仓库中的单个源码文件。仓库地址为`https://github.com/EricStone1900/StockAnalysis.git`。
+
+若仓库为私有仓库，为Ubuntu配置只读GitHub Deploy Key；不得把个人密码、PAT或私钥写入仓库、Shell历史或验收记录。服务器只接收源码、锁文件、迁移、契约和Fixture，不接收`.env`、Secret、`.venv`、缓存与数据卷。
+
+## 平台差异与可复现规则
+
+验收记录必须保存`uname -m`、Python/Qlib/NumPy/PyArrow/LightGBM版本、线程数、随机种子和镜像Digest。固定时区为`Asia/Shanghai`，计算容器使用UTC保存时间。
+
+- DataVersion输入Artifact的SHA-256在两端必须完全一致。
+- 因子和快照的`canonicalContentHash`必须完全一致。
+- Parquet与模型二进制分别校验自身SHA-256，但跨CPU只要求Schema、行数、规范内容Hash和冻结指标容差一致。
+- 首版基线模型固定随机种子与线程数；超出容差直接判定`FAIL`，不得手工修改验收结果。
+
+## 回滚
+
+Ubuntu始终保留上一验收通过的Git Tag、镜像Digest、迁移版本和READY快照指针。代码回滚使用上一Tag重新构建或拉取已记录Digest；数据库只执行向前修复迁移，不手工删除生产式数据。新快照失败时继续提供上一READY快照并标记`isStale=true`。

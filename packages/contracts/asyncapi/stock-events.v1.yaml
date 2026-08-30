@@ -1,0 +1,8 @@
+asyncapi: 3.0.0
+info: { title: Stock domain events, version: 1.0.0 }
+channels:
+  stock.market-data.data-version.published.v1:
+    address: stock.market-data.data-version.published.v1
+    messages:
+      dataVersionPublished:
+        payload: { $ref: '../schemas/domain-event-envelope.schema.json' }

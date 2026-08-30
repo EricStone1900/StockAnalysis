@@ -4,5 +4,5 @@
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
-  "scripts": { "lint": "eslint src", "typecheck": "tsc --noEmit", "test": "vitest run --passWithNoTests", "test:contract": "vitest run --passWithNoTests" }
+  "scripts": { "generate": "node scripts/generate-contracts.mjs", "check:generated": "node scripts/generate-contracts.mjs --check", "lint": "eslint src scripts", "typecheck": "tsc --noEmit", "test": "vitest run", "test:contract": "pnpm check:generated && vitest run" }
 }

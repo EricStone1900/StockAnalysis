@@ -6,6 +6,8 @@
 
 本服务输出股票研究结果、策略候选组合和版本化快照，不输出最终交易指令。完整策略插件和第三方接入规范见[可扩展日频策略平台设计](./daily-strategy-extension-design.md)。
 
+本服务与供应商无关，不直接调用`investment_data`、BaoStock、AKShare、巨潮资讯或Tushare。所有研究任务只消费`market-data-service`发布的DataVersion和不可变Qlib Artifact；输入必须能追溯到来源Release、原始Hash、质量报告和来源策略版本。
+
 推荐技术栈：Python、FastAPI、Qlib、Pandas/Polars、Parquet、DuckDB、PostgreSQL、S3/MinIO。RD-Agent运行在独立的[research-automation-service](./research-automation-service.md)，不是本服务的生产依赖。
 
 ## 2. 双通道设计
@@ -34,6 +36,8 @@
       -> 原子发布 DailyAnalysisSnapshot
 
 生产通道每天运行一次，建议在收盘后且数据源明确就绪后执行。
+
+价格动量、波动率和流动性因子可在首版日频主数据通过门禁后进入候选验证。价值因子需要历史估值口径与PIT可用时间；质量和财务修订类因子还需要公告时间及完整修订链。依赖数据未满足时因子只能为`DRAFT`或Fixture候选，不能进入`ACTIVE`集合。
 
 ## 3. 内部模块
 

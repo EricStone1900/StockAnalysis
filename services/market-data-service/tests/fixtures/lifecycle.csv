@@ -1,0 +1,4 @@
+exchange,symbol,name,status,event
+SSE,600000,浦发银行,ACTIVE,listed
+SZSE,000001,平安银行,SUSPENDED,suspended
+SSE,600999,退市示例,DELISTED,delisted
