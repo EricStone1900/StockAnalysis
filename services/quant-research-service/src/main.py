@@ -2,6 +2,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 
+from quant_research.daily_analysis import InMemoryDailyAnalysisRepository
 from quant_research.metadata_repository import (
     InMemoryResearchMetadataRepository,
     PostgresResearchMetadataRepository,
@@ -25,6 +26,7 @@ metadata_repository = _metadata_repository()
 strategy_registry = InMemoryStrategyRegistry()
 strategy_snapshot_repository = InMemoryStrategySnapshotRepository()
 strategy_run_service = StrategyRunService(strategy_snapshot_repository)
+daily_analysis_repository = InMemoryDailyAnalysisRepository()
 
 
 @app.get("/live")
@@ -60,6 +62,14 @@ def get_training_run(run_id: str) -> object:
     result = metadata_repository.get_training_run(run_id)
     if result is None:
         raise HTTPException(status_code=404, detail="training run not found")
+    return result
+
+
+@app.get("/api/v1/daily-analysis-snapshots/{snapshot_id}")
+def get_daily_analysis_snapshot(snapshot_id: str) -> object:
+    result = daily_analysis_repository.get(snapshot_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="daily analysis snapshot not found")
     return result
 
 

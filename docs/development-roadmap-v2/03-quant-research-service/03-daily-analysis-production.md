@@ -15,6 +15,7 @@
 - `publish`先进入`VALIDATING`，对候选和持仓按证券代码稳定排序，计算规范内容Hash，再通过`publish_atomically`写入完整快照；发布成功后才进入`READY`并发送`stock.quant.daily-analysis.published.v1`。
 - `fail`只记录失败原因，不覆盖仓储中的上一份快照；调用方应继续返回上一份快照并标记`isStale/validUntil`。
 - 当前为内存仓储和事件端口，供Mac Fixture验证使用；PostgreSQL、Outbox和真实消息总线属于后续组件集成。
+- FastAPI提供`GET /api/v1/daily-analysis-snapshots/{snapshot_id}`只读查询，未知快照返回404；不提供快照写接口。
 
 ```python
 def publish_snapshot(run: DailyQuantRun) -> DailyAnalysisSnapshot:
