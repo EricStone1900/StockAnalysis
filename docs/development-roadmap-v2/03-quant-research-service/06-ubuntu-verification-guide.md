@@ -130,6 +130,16 @@ git diff --check
 
 逐项人工注入并记录结果：错误 Artifact Hash、未来数据、重复事件、部分计算、PostgreSQL/MinIO/NATS 不可用、任务超时/OOM、Runner 外网访问。预期均不能发布 READY；重复事件只产生一个 Run；恢复后 Outbox 只补发一次；失败时上一 READY 快照仍可查询并标记 `isStale=true`；Runner 无法访问外网、数据库、宿主写目录或生产 Secret。
 
+本地或服务器 Fixture 规则校验可先逐项运行：
+
+```bash
+for scenario in future-data bad-artifact-hash duplicate-event partial-calculation nats-outage runner-isolation; do
+  ./scripts/stage03-failure-test.sh "$scenario" || exit 1
+done
+```
+
+该脚本只验证确定性规则和失败保留语义；真实服务故障注入仍需继续执行本节人工步骤。
+
 ## 10. 证据比对、回滚与签署
 
 在 Mac 导出本地证据后复制到服务器：

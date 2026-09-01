@@ -214,6 +214,23 @@ class StrategyOutboxDispatcher:
         return event
 
 
+class PostgresStrategyOutboxDispatcher:
+    """PostgreSQL Outbox 投递器；发布异常时不写确认时间。"""
+
+    def __init__(self, repository: PostgresStrategyMetadataRepository, publisher: StrategyEventPublisher) -> None:
+        self._repository = repository
+        self._publisher = publisher
+
+    def dispatch_once(self, now: datetime) -> StrategyOutboxEvent | None:
+        pending = self._repository.pending_outbox(1)
+        if not pending:
+            return None
+        event = pending[0]
+        self._publisher.publish(event.subject, event.payload)
+        self._repository.mark_outbox_published(event.event_id, now)
+        return event
+
+
 class InMemoryStrategyPublicationStore:
     """Fixture事务存储：快照和Outbox事件要么同时写入，要么均不改变。"""
 
@@ -603,6 +620,13 @@ class PostgresStrategyMetadataRepository:
 
     def save_version(self, version: StrategyVersion) -> None:
         self._save("strategy_version", f"{version.strategy_id}:{version.version}", version)
+
+    def get_version(self, strategy_id: str, version: str) -> StrategyVersion | None:
+        value = self._get("strategy_version", f"{strategy_id}:{version}")
+        return None if value is None else StrategyVersion.model_validate(value)
+
+    def get(self, snapshot_id: str) -> DailyStrategySnapshot | None:
+        return self.get_snapshot(snapshot_id)
 
     def save_gate(self, gate: StrategyGateResult) -> None:
         self._save("strategy_gate", f"{gate.strategy_id}:{gate.strategy_version}", gate)

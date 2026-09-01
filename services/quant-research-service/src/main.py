@@ -14,6 +14,7 @@ from quant_research.metadata_repository import (
 from quant_research.strategy import (
     InMemoryStrategyRegistry,
     InMemoryStrategySnapshotRepository,
+    PostgresStrategyMetadataRepository,
     StrategyRunService,
 )
 
@@ -25,11 +26,12 @@ def _metadata_repository() -> ResearchMetadataRepository:
     return InMemoryResearchMetadataRepository()
 
 app = FastAPI(title="quant-research-service", version="0.1.0")
+_daily_database_url = os.getenv("QUANT_RESEARCH_DATABASE_URL")
 metadata_repository = _metadata_repository()
 strategy_registry = InMemoryStrategyRegistry()
 strategy_snapshot_repository = InMemoryStrategySnapshotRepository()
+_strategy_database_repository = PostgresStrategyMetadataRepository(_daily_database_url) if _daily_database_url else None
 strategy_run_service = StrategyRunService(strategy_snapshot_repository)
-_daily_database_url = os.getenv("QUANT_RESEARCH_DATABASE_URL")
 daily_analysis_repository = (
     PostgresDailyAnalysisRepository(_daily_database_url)
     if _daily_database_url
@@ -99,7 +101,7 @@ def get_backtest_report(run_id: str) -> object:
 
 @app.get("/api/v1/strategies/{strategy_id}/{version}")
 def get_strategy_version(strategy_id: str, version: str) -> object:
-    result = strategy_registry.get(strategy_id, version)
+    result = (_strategy_database_repository.get_version(strategy_id, version) if _strategy_database_repository else strategy_registry.get(strategy_id, version))
     if result is None:
         raise HTTPException(status_code=404, detail="strategy version not found")
     return result
@@ -107,7 +109,7 @@ def get_strategy_version(strategy_id: str, version: str) -> object:
 
 @app.get("/api/v1/strategy-snapshots/{snapshot_id}")
 def get_strategy_snapshot(snapshot_id: str) -> object:
-    result = strategy_snapshot_repository.get(snapshot_id)
+    result = (_strategy_database_repository.get_snapshot(snapshot_id) if _strategy_database_repository else strategy_snapshot_repository.get(snapshot_id))
     if result is None:
         raise HTTPException(status_code=404, detail="strategy snapshot not found")
     return result
