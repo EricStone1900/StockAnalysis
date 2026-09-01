@@ -150,6 +150,43 @@ class InMemoryDailyAnalysisRepository:
         return None if self._latest_id is None else self.get(self._latest_id)
 
 
+class PostgresDailyAnalysisRepository:
+    def __init__(self, database_url: str) -> None:
+        self._database_url = database_url
+
+    def migrate(self, migration_path: str) -> None:
+        import psycopg
+
+        with psycopg.connect(self._database_url, autocommit=True) as connection, open(migration_path, encoding="utf-8") as migration:
+            connection.execute(migration.read())
+
+    def publish_atomically(self, snapshot: DailyAnalysisSnapshot) -> None:
+        import psycopg
+
+        payload = _canonical_json(snapshot)
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute("SELECT payload::text FROM daily_analysis_snapshots WHERE snapshot_id=%s", (snapshot.snapshot_id,)).fetchone()
+            if row is not None:
+                if _canonical_json(json.loads(str(row[0]))) != payload:
+                    raise ValueError("daily analysis snapshot already contains different content")
+                return
+            connection.execute("INSERT INTO daily_analysis_snapshots(snapshot_id, payload) VALUES (%s,%s::jsonb)", (snapshot.snapshot_id, payload))
+
+    def get(self, snapshot_id: str) -> DailyAnalysisSnapshot | None:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute("SELECT payload::text FROM daily_analysis_snapshots WHERE snapshot_id=%s", (snapshot_id,)).fetchone()
+        return None if row is None else DailyAnalysisSnapshot.model_validate_json(str(row[0]))
+
+    def latest_ready(self) -> DailyAnalysisSnapshot | None:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute("SELECT payload::text FROM daily_analysis_snapshots WHERE (payload->>'is_stale')::boolean = false ORDER BY created_at DESC LIMIT 1").fetchone()
+        return None if row is None else DailyAnalysisSnapshot.model_validate_json(str(row[0]))
+
+
 class DailyAnalysisService:
     def __init__(self, repository: DailyAnalysisRepository, events: DailyAnalysisEventPublisher | None = None) -> None:
         self._repository = repository

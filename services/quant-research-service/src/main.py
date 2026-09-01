@@ -2,7 +2,10 @@ import os
 
 from fastapi import FastAPI, HTTPException
 
-from quant_research.daily_analysis import InMemoryDailyAnalysisRepository
+from quant_research.daily_analysis import (
+    InMemoryDailyAnalysisRepository,
+    PostgresDailyAnalysisRepository,
+)
 from quant_research.metadata_repository import (
     InMemoryResearchMetadataRepository,
     PostgresResearchMetadataRepository,
@@ -26,7 +29,12 @@ metadata_repository = _metadata_repository()
 strategy_registry = InMemoryStrategyRegistry()
 strategy_snapshot_repository = InMemoryStrategySnapshotRepository()
 strategy_run_service = StrategyRunService(strategy_snapshot_repository)
-daily_analysis_repository = InMemoryDailyAnalysisRepository()
+_daily_database_url = os.getenv("QUANT_RESEARCH_DATABASE_URL")
+daily_analysis_repository = (
+    PostgresDailyAnalysisRepository(_daily_database_url)
+    if _daily_database_url
+    else InMemoryDailyAnalysisRepository()
+)
 
 
 @app.get("/live")
