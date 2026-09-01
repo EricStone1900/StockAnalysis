@@ -8,6 +8,7 @@
 - 可独立构建的`quant-research-service`镜像，Ubuntu宿主端口默认使用`3001`。
 - `scripts/stage03-verify-mac.sh`：Mac静态检查、单元、契约和Fixture E2E。
 - `scripts/stage03-verify-ubuntu.sh`：Ubuntu迁移、集成、Qlib E2E、安全和恢复测试（完整自动化仍在后续补齐）。
+- `scripts/stage03-e2e.sh`：Mac/Ubuntu均可执行的固定Fixture两次闭环烟测；真实DataVersion仍必须按Ubuntu人工验收。
 - `scripts/stage03-record-evidence.sh`：输出提交、架构、镜像Digest、Compose和运行时版本记录。
 - `scripts/stage03-compare-evidence.sh`：比较Mac与Ubuntu的Commit、输入Artifact SHA-256和`canonicalContentHash`。
 - `infra/compose/docker-compose.stage03-ubuntu.yml`：使用Compose的`!override`替换基础端口列表并仅绑定`127.0.0.1`，使用Docker Secret，不暴露数据库、MinIO、NATS或API到公网。

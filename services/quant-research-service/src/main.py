@@ -117,7 +117,7 @@ def get_strategy_snapshot(snapshot_id: str) -> object:
 
 @app.get("/api/v1/strategy-runs/{run_id}")
 def get_strategy_run(run_id: str) -> object:
-    result = strategy_run_service.get(run_id)
+    result = (_strategy_database_repository.get_run(run_id) if _strategy_database_repository else strategy_run_service.get(run_id))
     if result is None:
         raise HTTPException(status_code=404, detail="strategy run not found")
     return result

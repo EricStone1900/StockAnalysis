@@ -1,5 +1,5 @@
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -13,6 +13,8 @@ from quant_research.strategy import (
     StrategyContext,
     StrategyEvaluation,
     StrategyOutboxEvent,
+    StrategyRun,
+    StrategyRunStatus,
     StrategyStatus,
     StrategyVersion,
     build_strategy_snapshot,
@@ -38,6 +40,10 @@ def test_postgres_snapshot_and_outbox_are_atomic_and_idempotent() -> None:
     repository.publish_snapshot_with_outbox(snapshot, event)
     repository.publish_snapshot_with_outbox(snapshot, event)
     assert repository.get_snapshot(snapshot.snapshot_id) == snapshot
+    run = StrategyRun(run_id="integration-strategy-run", strategy_id="no-rebalance", strategy_version=active.version, as_of_date=date(2026, 9, 1), status=StrategyRunStatus.READY, started_at=moment, completed_at=moment, snapshot_id=snapshot.snapshot_id)
+    repository.save_run(run)
+    repository.save_run(run)
+    assert repository.get_run(run.run_id) == run
     assert repository.pending_outbox(10) == (event,)
     repository.mark_outbox_published(event.event_id, datetime(2026, 9, 1, 3, tzinfo=UTC))
     assert repository.pending_outbox(10) == ()
@@ -46,3 +52,4 @@ def test_postgres_snapshot_and_outbox_are_atomic_and_idempotent() -> None:
     with psycopg.connect(url) as connection:
         connection.execute("DELETE FROM strategy_metadata_records WHERE record_id=%s", (snapshot.snapshot_id,))
         connection.execute("DELETE FROM strategy_outbox_events WHERE event_id=%s", (event.event_id,))
+        connection.execute("DELETE FROM strategy_runs WHERE run_id=%s", (run.run_id,))

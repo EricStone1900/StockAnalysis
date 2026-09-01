@@ -621,6 +621,13 @@ class PostgresStrategyMetadataRepository:
     def save_version(self, version: StrategyVersion) -> None:
         self._save("strategy_version", f"{version.strategy_id}:{version.version}", version)
 
+    def save_run(self, run: StrategyRun) -> None:
+        self._save_table("strategy_runs", run.run_id, run)
+
+    def get_run(self, run_id: str) -> StrategyRun | None:
+        value = self._get_table("strategy_runs", run_id)
+        return None if value is None else StrategyRun.model_validate(value)
+
     def get_version(self, strategy_id: str, version: str) -> StrategyVersion | None:
         value = self._get("strategy_version", f"{strategy_id}:{version}")
         return None if value is None else StrategyVersion.model_validate(value)
@@ -704,6 +711,25 @@ class PostgresStrategyMetadataRepository:
 
         with psycopg.connect(self._database_url) as connection:
             row = connection.execute("SELECT payload::text FROM strategy_metadata_records WHERE record_type=%s AND record_id=%s", (record_type, record_id)).fetchone()
+        return None if row is None else json.loads(str(row[0]))
+
+    def _save_table(self, table: str, record_id: str, value: object) -> None:
+        import psycopg
+
+        payload = _canonical(value)
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute(f"SELECT payload::text FROM {table} WHERE run_id=%s", (record_id,)).fetchone()
+            if row is not None:
+                if _canonical(json.loads(str(row[0]))) != payload:
+                    raise ValueError("strategy run already contains different content")
+                return
+            connection.execute(f"INSERT INTO {table}(run_id, payload) VALUES (%s,%s::jsonb)", (record_id, payload))
+
+    def _get_table(self, table: str, record_id: str) -> dict[str, Any] | None:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute(f"SELECT payload::text FROM {table} WHERE run_id=%s", (record_id,)).fetchone()
         return None if row is None else json.loads(str(row[0]))
 
 
