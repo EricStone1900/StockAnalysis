@@ -100,6 +100,12 @@ curl --fail http://127.0.0.1:3001/openapi.json -o /tmp/stage03-openapi.json
 
 脚本完成 Compose 安全检查、原生构建、启动、双次迁移、健康/API 检查和可用时的 Python 质量检查。脚本通过不等于完成真实数据与故障恢复验收，必须继续执行后续章节。
 
+完成基础检查后记录机器证据：
+
+```bash
+./scripts/stage03-record-evidence.sh artifacts/stage03/ubuntu
+```
+
 ```bash
 cd services/quant-research-service
 uv sync --frozen
