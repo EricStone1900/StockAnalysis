@@ -9,7 +9,9 @@ from quant_research.strategy import (
     InMemoryStrategyRegistry,
     NoRebalanceStrategy,
     PostgresStrategyMetadataRepository,
+    PostgresStrategyPublicationStore,
     PostgresStrategyRegistry,
+    PostgresStrategyRunService,
     RebalancePolicy,
     StrategyContext,
     StrategyEvaluation,
@@ -42,6 +44,7 @@ def test_postgres_snapshot_and_outbox_are_atomic_and_idempotent() -> None:
     event = StrategyOutboxEvent(event_id="integration-strategy-event", subject="stock.quant.daily-strategy.published.v1", payload={"snapshotId": snapshot.snapshot_id, "contentHash": snapshot.content_hash})
     repository.publish_snapshot_with_outbox(snapshot, event)
     repository.publish_snapshot_with_outbox(snapshot, event)
+    PostgresStrategyPublicationStore(repository).publish(snapshot, event)
     assert repository.get_snapshot(snapshot.snapshot_id) == snapshot
     run = StrategyRun(run_id="integration-strategy-run", strategy_id="no-rebalance", strategy_version=active.version, as_of_date=date(2026, 9, 1), status=StrategyRunStatus.READY, started_at=moment, completed_at=moment, snapshot_id=snapshot.snapshot_id)
     repository.save_run(run)
@@ -72,3 +75,17 @@ def test_postgres_registry_registers_and_activates_only_after_gates() -> None:
     assert registry.get(version.strategy_id, version.version) == active
     with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"]) as connection:
         connection.execute("DELETE FROM strategy_metadata_records WHERE record_type='strategy_version' AND record_id=%s", (f"{version.strategy_id}:{version.version}",))
+
+
+def test_postgres_strategy_run_service_is_recoverable() -> None:
+    import psycopg
+
+    repository = PostgresStrategyMetadataRepository(os.environ["MARKET_DATA_DATABASE_URL"])
+    service = PostgresStrategyRunService(repository)
+    started = datetime(2026, 9, 1, tzinfo=UTC)
+    run = service.start("integration-run-service", "strategy", "v1", date(2026, 9, 1), started)
+    assert service.start(run.run_id, run.strategy_id, run.strategy_version, run.as_of_date, started) == run
+    ready = service.ready(run.run_id, "snapshot-1", started)
+    assert service.get(run.run_id) == ready
+    with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"]) as connection:
+        connection.execute("DELETE FROM strategy_runs WHERE run_id=%s", (run.run_id,))

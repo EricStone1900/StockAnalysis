@@ -12,6 +12,7 @@ from quant_research.strategy import (
     LowTurnoverTopKStrategy,
     MultiFactorQualityStrategy,
     NoRebalanceStrategy,
+    PostgresStrategyRegistry,
     RebalanceDecision,
     RebalancePolicy,
     RegimeOverlayStrategy,
@@ -222,3 +223,35 @@ def test_execution_and_outbox_dispatch_retry_form_complete_fixture_e2e() -> None
     dispatcher.dispatch_once(datetime(2026, 9, 1, 4, tzinfo=UTC))
     assert len(publication.outbox.pending()) == 0
     assert len(publisher.items) == 1
+
+
+def test_outbox_dispatch_batch_honors_limit() -> None:
+    outbox = InMemoryStrategyOutbox()
+    for index in range(3):
+        outbox.append(StrategyOutboxEvent(event_id=f"batch-{index}", subject="subject", payload={"index": index}))
+    publisher = FakePublisher()
+    dispatcher = StrategyOutboxDispatcher(outbox, publisher)
+    assert len(dispatcher.dispatch_batch(datetime(2026, 9, 1, tzinfo=UTC), limit=2)) == 2
+    assert len(outbox.pending()) == 1
+
+
+def test_postgres_registry_flow_persists_activation_contract() -> None:
+    class FakeRepository:
+        def __init__(self) -> None:
+            self.value = None
+
+        def save_version(self, version: StrategyVersion) -> None:
+            self.value = version
+
+        def replace_version(self, version: StrategyVersion) -> None:
+            self.value = version
+
+        def get_version(self, strategy_id: str, version: str) -> StrategyVersion | None:
+            return self.value if self.value and self.value.strategy_id == strategy_id and self.value.version == version else None
+
+    repository = FakeRepository()
+    registry = PostgresStrategyRegistry(repository)  # type: ignore[arg-type]
+    registry.register(_version())
+    gates = evaluate_strategy_gates("no-rebalance", "v1", StrategyGateInput(pit_passed=True, out_of_sample=True, cost_model_version="cost-v1", expected_turnover=Decimal("0.1"), maximum_turnover=Decimal("0.2"), capacity_passed=True, license_passed=True, security_passed=True), datetime(2026, 9, 1, tzinfo=UTC))
+    active = registry.activate("no-rebalance", "v1", StrategyEvaluation(strategy_id="no-rebalance", strategy_version="v1", out_of_sample=True, cost_model_version="cost-v1", approval_reference="approval"), gates)
+    assert active.status is StrategyStatus.ACTIVE

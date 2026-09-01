@@ -33,6 +33,7 @@
 - 策略版本注册记录保持内容不可变；合法生命周期变更通过受控`replace_version`更新状态，避免使用冲突写入绕过版本审计。
 - `StrategyRunService`记录策略运行状态和失败原因；失败时返回上一份READY快照的`is_stale=true`副本，仓储中的上一份READY快照保持不变，重复运行按`run_id`幂等。
 - `StrategyExecutionService`串联ACTIVE版本、插件Context校验、StrategyResult、DailyStrategySnapshot和Outbox事件；`StrategyOutboxDispatcher`在发布异常时保留pending，成功后才标记，形成可重试Fixture E2E闭环。
+- `StrategyOutboxDispatcher.dispatch_batch`支持有上限的顺序批量投递；单个事件失败会停止批次并保留当前及后续pending事件，避免跳过顺序和丢失消息。
 - `build_strategy_snapshot`只接受`ACTIVE`版本，生成稳定内容Hash；`InMemoryStrategySnapshotRepository`提供完整快照原子写入和重复幂等。
 - 第三方插件容器隔离、PostgreSQL Registry、Outbox、真实策略和Ensemble属于后续组件集成，不在本次最小切片中实现。
 

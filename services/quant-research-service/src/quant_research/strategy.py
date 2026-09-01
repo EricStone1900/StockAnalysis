@@ -213,6 +213,17 @@ class StrategyOutboxDispatcher:
         self._outbox.mark_published(event.event_id, now)
         return event
 
+    def dispatch_batch(self, now: datetime, limit: int = 100) -> tuple[StrategyOutboxEvent, ...]:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        delivered: list[StrategyOutboxEvent] = []
+        for _ in range(limit):
+            event = self.dispatch_once(now)
+            if event is None:
+                break
+            delivered.append(event)
+        return tuple(delivered)
+
 
 class PostgresStrategyOutboxDispatcher:
     """PostgreSQL Outbox 投递器；发布异常时不写确认时间。"""
@@ -247,10 +258,24 @@ class InMemoryStrategyPublicationStore:
         self.outbox.append(event)
 
 
+class PostgresStrategyPublicationStore:
+    """将策略快照与Outbox事件委托给同一PostgreSQL事务。"""
+
+    def __init__(self, repository: PostgresStrategyMetadataRepository) -> None:
+        self._repository = repository
+
+    def publish(self, snapshot: DailyStrategySnapshot, event: StrategyOutboxEvent) -> None:
+        self._repository.publish_snapshot_with_outbox(snapshot, event)
+
+
+class StrategyPublicationPort(Protocol):
+    def publish(self, snapshot: DailyStrategySnapshot, event: StrategyOutboxEvent) -> None: ...
+
+
 class StrategyExecutionService:
     """Fixture端到端协调器：只运行已激活策略并发布研究快照。"""
 
-    def __init__(self, registry: InMemoryStrategyRegistry, publication: InMemoryStrategyPublicationStore) -> None:
+    def __init__(self, registry: InMemoryStrategyRegistry, publication: StrategyPublicationPort) -> None:
         self._registry = registry
         self._publication = publication
 
@@ -633,6 +658,42 @@ class StrategyRunService:
         return self._runs.get(run_id)
 
 
+class PostgresStrategyRunService:
+    """基于PostgreSQL元数据仓储的可恢复运行状态服务。"""
+
+    def __init__(self, repository: PostgresStrategyMetadataRepository) -> None:
+        self._repository = repository
+
+    def start(self, run_id: str, strategy_id: str, strategy_version: str, as_of_date: date, started_at: datetime) -> StrategyRun:
+        existing = self._repository.get_run(run_id)
+        if existing is not None:
+            if (existing.strategy_id, existing.strategy_version, existing.as_of_date) != (strategy_id, strategy_version, as_of_date):
+                raise ValueError("run id already contains different strategy input")
+            return existing
+        run = StrategyRun(run_id=run_id, strategy_id=strategy_id, strategy_version=strategy_version, as_of_date=as_of_date, status=StrategyRunStatus.RUNNING, started_at=started_at)
+        self._repository.save_run(run)
+        return run
+
+    def ready(self, run_id: str, snapshot_id: str, completed_at: datetime) -> StrategyRun:
+        current = self._repository.get_run(run_id)
+        if current is None or current.status is not StrategyRunStatus.RUNNING:
+            raise ValueError("strategy run is not running")
+        updated = current.model_copy(update={"status": StrategyRunStatus.READY, "snapshot_id": snapshot_id, "completed_at": completed_at})
+        self._repository.replace_run(updated)
+        return updated
+
+    def fail(self, run_id: str, reason: str, completed_at: datetime) -> StrategyRun:
+        current = self._repository.get_run(run_id)
+        if current is None:
+            raise ValueError("strategy run not found")
+        updated = current.model_copy(update={"status": StrategyRunStatus.FAILED, "failure_reason": reason, "completed_at": completed_at})
+        self._repository.replace_run(updated)
+        return updated
+
+    def get(self, run_id: str) -> StrategyRun | None:
+        return self._repository.get_run(run_id)
+
+
 class PostgresStrategyMetadataRepository:
     """策略版本与快照的 JSONB 元数据仓储；大对象仍只保存 Artifact 引用。"""
 
@@ -657,6 +718,12 @@ class PostgresStrategyMetadataRepository:
 
     def save_run(self, run: StrategyRun) -> None:
         self._save_table("strategy_runs", run.run_id, run)
+
+    def replace_run(self, run: StrategyRun) -> None:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            connection.execute("UPDATE strategy_runs SET payload=%s::jsonb WHERE run_id=%s", (_canonical(run), run.run_id))
 
     def get_run(self, run_id: str) -> StrategyRun | None:
         value = self._get_table("strategy_runs", run_id)
