@@ -163,7 +163,7 @@ export STAGE03_SOURCE_RELEASE='替换为固定investment_data Release Tag'
   --repeat 2
 ```
 
-人工确认两次运行的DataVersion、UniverseVersion、FactorSetVersion、ModelVersion和随机种子相同；股票池不包含未来成分；停牌、退市和持仓股处理符合规则；只有ACTIVE因子、模型和策略进入READY快照；CANDIDATE被拒绝；`NO_REBALANCE`不创建交易批次。
+人工确认两次运行的DataVersion、UniverseVersion、FactorSetVersion、ModelVersion和随机种子相同；股票池不包含未来成分；停牌、退市和持仓股处理符合规则；只有ACTIVE因子、模型和策略进入READY快照；CANDIDATE被拒绝；`NO_REBALANCE`不创建组合调仓批次，quant服务没有DecisionBudgetReservation或RebalanceBatch写接口。
 
 两次运行的`canonicalContentHash`、快照行数和排序必须一致。输出必须包含DailyAnalysisSnapshot、DailyStrategySnapshot、回测明细、质量摘要和Artifact引用，不得包含最终BUY/SELL指令、订单、审批或Secret。
 

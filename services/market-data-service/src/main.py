@@ -43,6 +43,9 @@ def create_data_version_publisher() -> DataVersionPublisher:
 
 
 data_version_publisher = create_data_version_publisher()
+source_lineage_repository = PostgresSourceLineageRepository(
+    os.getenv("MARKET_DATA_DATABASE_URL", "postgresql://localhost:5432/market_data")
+)
 
 
 def create_investment_data_import_service() -> InvestmentDataImportService:
@@ -50,9 +53,7 @@ def create_investment_data_import_service() -> InvestmentDataImportService:
     return InvestmentDataImportService(
         adapter=InvestmentDataReleaseAdapter(),
         artifact_writer=store,
-        lineage=PostgresSourceLineageRepository(
-            os.getenv("MARKET_DATA_DATABASE_URL", "postgresql://localhost:5432/market_data")
-        ),
+        lineage=source_lineage_repository,
         publisher=data_version_publisher,
         artifact_uri_prefix=f"minio://{store.bucket}",
     )
@@ -63,9 +64,7 @@ investment_data_import_service = create_investment_data_import_service()
 
 def create_baostock_status_import_service() -> BaoStockStatusImportService:
     store = data_version_publisher.artifact_store
-    lineage = PostgresSourceLineageRepository(
-        os.getenv("MARKET_DATA_DATABASE_URL", "postgresql://localhost:5432/market_data")
-    )
+    lineage = source_lineage_repository
     enrichment = BaoStockStatusEnrichmentService(
         BaoStockTradingStatusAdapter(
             BaoStockSdkClient,
@@ -185,7 +184,7 @@ def calendar(market: str, day: date) -> dict[str, object]:
 
 @app.get("/api/v1/data-versions/latest")
 def latest_data_version() -> DataVersion:
-    latest = service.versions.latest_ready()
+    latest = service.versions.latest_ready() or source_lineage_repository.latest_ready_data_version()
     if latest is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no ready data version")
     return latest

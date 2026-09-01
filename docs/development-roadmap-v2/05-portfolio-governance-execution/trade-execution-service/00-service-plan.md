@@ -2,7 +2,7 @@
 
 ## 目标与边界
 
-第一版只实现人工执行：从已批准建议创建OrderIntent，记录人工提交、成交、撤销和对账。领域基线见[交易执行设计](../../../architecture/services/trade-execution-service.md)。
+第一版只实现人工执行：从已批准组合级建议和有效预算预留原子创建RebalanceBatch及OrderIntent[]，记录人工提交、成交、撤销和对账。领域基线见[交易执行设计](../../../architecture/services/trade-execution-service.md)与[ADR-010](../../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 ## 内部阶段
 
@@ -11,4 +11,3 @@
 3. [测试](./90-test-plan.md)与[验收](./99-acceptance.md)。
 
 当前禁止接生产券商交易接口；Broker Port只提供Fake实现。
-

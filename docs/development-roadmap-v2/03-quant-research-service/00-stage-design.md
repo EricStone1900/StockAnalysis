@@ -27,6 +27,8 @@
 
 只输出量化事实、候选组合和策略快照，不生成TradeProposal、Approval或Order。Agent和Workflow尚未接入，全部调用用Fixture/Fake Consumer验证。
 
+本阶段按[ADR-010](../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)冻结与下游的边界：DailyStrategySnapshot输出完整目标权重和proposedChanges，但不实现DecisionBudgetReservation、RebalanceBatch、OrderIntent或每日批次计数；这些能力留在阶段05及以后。
+
 数据源接入属于阶段02的`market-data-service`。阶段03可先使用Fixture开发骨架和公式；真实数据验收必须使用阶段02按[首版数据源策略](../02-market-data-service/05-v1-data-source-policy.md)发布的固定DataVersion。历史估值、公告时间和修订链不完整时，价值与质量因子不得超过`DRAFT`。
 
 ## 收盘空洞的按需解释策略

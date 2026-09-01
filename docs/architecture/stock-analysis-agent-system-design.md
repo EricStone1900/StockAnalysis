@@ -21,7 +21,7 @@
 - 面向A股的低频分析和辅助决策。
 - 主Agent加五个专业Agent，共六个Agent。
 - 阶段11可增加一个研究侧`strategy-learning-agent`用于复盘和生成候选实验；它不进入生产决策链，因此生产交易Agent仍为六个。
-- 每天最多1～2个真实交易批次。
+- 每个组合、每个交易日允许0～2个组合调仓批次；一次批次可以包含多只股票的多个委托。
 - 每周1～2次是观察目标，不是最低交易要求。
 - 允许连续数周或2～3个月不交易。
 - 第一阶段由用户人工批准、人工下单并回填成交。
@@ -135,8 +135,8 @@
 | `market-monitor-service` | Watchlist、分钟Bar、规则版本、MarketAnomalyEvent | 盯盘Agent、Workflow、风险Agent |
 | `market-regime-service` | RegimeDefinition、MarketRegimeSnapshot | 市场状态Agent、主Agent、风险和硬风控 |
 | `portfolio-risk-service` | Account、Ledger、PortfolioSnapshot、RiskPolicy、RiskEvaluation | 主Agent、风险Agent、治理、执行 |
-| `decision-governance-service` | TradeProposal、Review Link、Approval、决策预算和状态机 | Workflow、Web、execution |
-| `trade-execution-service` | OrderIntent、Order、Fill、Reconciliation | Web、治理、portfolio-risk |
+| `decision-governance-service` | 组合级TradeProposal、Review Link、Approval、DecisionBudgetReservation和状态机 | Workflow、Web、execution |
+| `trade-execution-service` | RebalanceBatch、OrderIntent、Order、Fill、Reconciliation | Web、治理、portfolio-risk |
 
 `portfolio-risk-service`当前保留为一个限界上下文，因为组合投影与预交易风险需要强一致输入。未来多账户或独立风控发布节奏出现后，再拆成`portfolio-service`和`risk-control-service`。
 
@@ -158,7 +158,7 @@
 | `financial-news-agent` | NewsEventCandidate、证据 | FinancialNewsEvent |
 | `market-monitor-agent` | MarketAnomalyEvent | MarketMonitorAssessment |
 | `market-state-agent` | MarketRegimeSnapshot、组合上下文 | MarketRegimeAssessment |
-| `main-decision-agent` | 全部专业分析、组合和风险数据 | TradeProposalDraft |
+| `main-decision-agent` | 全部专业分析、组合和风险数据 | 组合级TradeProposalDraft |
 | `risk-review-agent` | TradeProposal、RiskReviewEvidencePacket | RiskReviewResult |
 
 建议独立部署的原因是权限、模型、扩缩容和失败策略不同；不建议复制六套Agent Kernel代码。
@@ -385,12 +385,13 @@ Decision trigger event
        REJECT -> close current version
        INSUFFICIENT_EVIDENCE -> REVIEW_BLOCKED
   -> decision-governance waits human approval
-  -> trade-execution creates manual OrderIntent
+  -> decision-governance atomically reserves a rebalance budget slot
+  -> trade-execution atomically accepts RebalanceBatch and creates OrderIntent[]
   -> confirmed Fill event
   -> portfolio-risk applies ledger and publishes new snapshot
 ```
 
-每天最多1～2个交易批次由`portfolio-risk-service`确定性执行。HOLD、拒绝、过期和未审批不计入真实批次。
+组合调仓批次语义遵循[ADR-010](./adr/ADR-010-rebalance-batch-and-daily-limit.md)：`portfolio-risk-service`对全部Leg计算组合级`projectedAfter`并给出RiskEvaluation，`decision-governance-service`原子预留每日0～2批预算，`trade-execution-service`接受批次后把预留转为已消耗。HOLD、拒绝、过期、未审批以及执行接受前的整体失败不占用真实批次；同批次的多委托、部分成交、撤单重报和幂等重试不重复计数。
 
 ## 10. 数据与事实所有权
 
@@ -403,8 +404,8 @@ Decision trigger event
 | Watchlist、MonitorRule、MarketAnomalyEvent | market-monitor-service |
 | RegimeDefinition、MarketRegimeSnapshot | market-regime-service |
 | PortfolioLedger、PortfolioSnapshot、RiskPolicy、RiskEvaluation | portfolio-risk-service |
-| TradeProposal、Approval、DecisionBudget | decision-governance-service |
-| OrderIntent、Order、Fill、ReconciliationIssue | trade-execution-service |
+| TradeProposal、Approval、DecisionBudgetReservation、DecisionBudgetSnapshot | decision-governance-service |
+| RebalanceBatch、OrderIntent、Order、Fill、ReconciliationIssue | trade-execution-service |
 | AgentRun、ModelRun、Agent输出 | 对应Agent部署的agent-service数据库 |
 | Workflow状态 | Temporal |
 
@@ -589,7 +590,7 @@ Docker Compose足以完成当前低频人工模式；出现明确的可用性和
 4. Regime变化触发重评估。
 5. 主Agent建议被风险Agent或硬风控拒绝。
 6. PASS_WITH_CONDITIONS产生新proposalVersion并有修订上限。
-7. 每日第3个交易批次被拒绝。
+7. 每日第3个组合调仓批次被拒绝；同一批次的多Leg、部分成交和重报不重复计数。
 8. Worker或NATS重启后不丢事件、不重复副作用。
 9. 人工审批等待和过期正确。
 10. Fill重复投递只入账一次。
@@ -597,7 +598,9 @@ Docker Compose足以完成当前低频人工模式；出现明确的可用性和
 12. 新增符合Plugin SDK的第三方日频策略不修改Agent、Workflow和治理状态机。
 13. 第三方策略的网络、数据库、宿主文件和生产密钥访问被隔离并留下审计记录。
 14. `CANDIDATE`或过期策略快照不能进入Agent上下文，策略版本变化使旧风险证据包失效。
-15. 每日策略计算返回`NO_REBALANCE`时不创建TradeProposal或增加交易批次。
+15. 每日策略计算返回`NO_REBALANCE`时不创建TradeProposal或增加组合调仓批次。
+16. 组合级Proposal一次风控全部Leg；任一Leg违反T+1、可交易性或导致组合超限时，不能拆单绕过。
+17. 阶段10联合回放比较纯日频、盘中延迟、风险减仓、最多两批和`NO_REBALANCE`基准。
 
 ## 16. 推荐开发顺序
 
@@ -614,7 +617,7 @@ Docker Compose足以完成当前低频人工模式；出现明确的可用性和
 - NATS事件使用Outbox/Inbox并能重放。
 - Agent不拥有行情、持仓、风险和订单事实。
 - 硬风控、人工审批和执行边界不可绕过。
-- 每天最多1～2个交易批次由确定性规则执行。
+- 每个组合每天允许0～2个组合调仓批次，并按ADR-010的预算预留、接受和幂等计数规则确定性执行。
 - 系统允许长期HOLD。
 - 日频策略通过版本化Registry和Plugin SDK扩展，第三方代码默认隔离运行。
 - 只有通过回测、安全、许可和人工审批并处于`ACTIVE`状态的策略快照能成为生产决策证据。

@@ -1,4 +1,4 @@
-# ADR-001～ADR-018 决策登记
+# ADR-001～ADR-019 决策登记
 
 ## 使用规则
 
@@ -15,7 +15,7 @@
 | 007 | 盘中行情 Gateway | vn.py Gateway 或轮询；按许可、稳定性与延迟决策 | 影响阶段 06；否 | BLOCKED |
 | 008 | 市场状态定义 | 固定枚举、迟滞和版本化规则；LLM 不计算状态 | 影响阶段 06；否 | BLOCKED |
 | 009 | 模型 Provider 绑定 | 逻辑 Profile + 多 Provider 适配，配置隔离 | 影响阶段 08；否 | BLOCKED |
-| 010 | 交易批次与日上限 | 每日最多 1～2 批，`NO_TRADE` 为正常结果 | 影响阶段 05/10；否 | BLOCKED |
+| [010](./ADR-010-rebalance-batch-and-daily-limit.md) | 组合调仓批次与日上限 | 每日允许 0～2 个组合级调仓批次；一次批次可拆成多个委托 | 影响阶段 03/05/09/10/12；否 | ACCEPTED |
 | 011 | 人工 Fill 与持仓事实 | execution 写 Fill，portfolio-risk 写账本和持仓投影 | 影响阶段 05；否 | BLOCKED |
 | 012 | 新闻许可与原文留存 | 仅合规来源；记录许可元数据与留存规则 | 影响阶段 06；否 | BLOCKED |
 | 013 | Paper/Shadow/生产账户隔离 | 独立凭证、账户、Feature Flag 与审计边界 | 影响阶段 12；否 | BLOCKED |
@@ -24,6 +24,7 @@
 | 016 | 服务边界与调用矩阵 | 以阶段 00 服务目录和通信基线为候选结论 | 影响全部服务；是 | BLOCKED |
 | 017 | 六 Agent 部署隔离 | 同镜像、独立权限、Task Queue、Consumer 和 Model Profile | 影响阶段 08；否 | BLOCKED |
 | 018 | Strategy Plugin SDK 与第三方隔离 | 版本化 SDK、隔离 Runner、SBOM/许可证门禁、人工激活 | 影响阶段 03；否 | BLOCKED |
+| [019](./ADR-019-free-first-intraday-watchlist.md) | 免费优先的准实时 Watchlist 行情 | 批量快照、默认 50 支、扩展至 80 支、100 支压力门槛；陈旧数据失败关闭 | 影响阶段 06；否 | ACCEPTED |
 
 ## 确认记录模板
 

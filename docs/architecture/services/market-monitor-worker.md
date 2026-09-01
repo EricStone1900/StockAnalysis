@@ -82,16 +82,52 @@ River分数只参与异常等级计算，不控制止损、仓位或订单。
 
 两种模式输出相同内部契约，上游数据源可以替换。
 
+### 免费首版运行档
+
+`FREE_TIERED_10_20_30`遵循[ADR-019](../adr/ADR-019-free-first-intraday-watchlist.md)：每10分钟以一次批量快照覆盖活跃Watchlist，再在本地筛选和聚合；不得把50～100支股票拆成逐股请求。P0每10分钟、P1每20分钟、P2每30分钟评估，三层复用同一批快照且不额外请求上游。默认50支，完成稳定性验证后最多80支，100支仅用于压力测试。
+
+免费数据源只适用于研究和Shadow的`best effort`准实时监控。计划窗口后120秒未完成、`quoteAgeSeconds`超过180秒、覆盖不足、字段异常或连续两轮失败时，必须标记`WARN/FAIL`、告警并停止产生“正常”事件或下游风险放行。P0的1～5分钟能力须等待经验证的推送、付费或券商只读Gateway，不能由免费逐股轮询替代。
+
 ## 6. 监控股票分层
 
 | 等级 | 范围 | 建议频率 |
 |---|---|---|
-| P0 | 当前持仓、待执行指令 | 1～5分钟 |
-| P1 | 当日量化候选股 | 5分钟 |
-| P2 | 人工关注列表 | 10～15分钟 |
+| P0 | 当前持仓、待执行指令 | 10分钟 |
+| P1 | 当日量化候选股 | 20分钟 |
+| P2 | 人工关注列表 | 30分钟 |
 | P3 | 全市场 | 日频或使用供应商异常榜单 |
 
 监控集合由 portfolio-risk-service、quant-research-service 和人工关注列表共同生成，保存 watchlistVersion。
+
+首版默认把P0、P1和P2合并为不超过50支的活跃集合并使用10分钟批量采样、10/20/30分钟分层评估；通过ADR-019的80支门槛后才允许扩容。`MonitorPolicy`必须版本化间隔、阈值、冷却和升级规则，交易时段内冻结；阈值只能触发HOLD、WATCH、DELAY、CANCEL、风险减仓或执行修正，不能重新计算日频Alpha或创建新的盘中Alpha调仓。
+
+### MonitorPolicy
+
+```ts
+interface MonitorPolicy {
+  policyVersion: string;
+  effectiveFrom: string;
+  sampleIntervalMinutes: 10;
+  tiers: {
+    P0: { evaluationIntervalMinutes: 10; thresholdSetId: string };
+    P1: { evaluationIntervalMinutes: 20; thresholdSetId: string };
+    P2: { evaluationIntervalMinutes: 30; thresholdSetId: string };
+  };
+  cooldownMinutes: number;
+  escalationRules: Array<{
+    thresholdId: string;
+    fromTier: 'P1' | 'P2';
+    toTier: 'P0' | 'P1';
+    expiresAt: string;
+  }>;
+  allowedActions: Array<
+    'HOLD' | 'WATCH' | 'DELAY' | 'CANCEL'
+    | 'INTRADAY_RISK_REDUCTION' | 'EXECUTION_CORRECTION'
+  >;
+}
+```
+
+首版只允许10/20/30分钟枚举，不开放任意分钟值。阈值升级可临时提高某证券的评估层级，但不改变日频目标组合，不增加上游批量请求，也不绕过每日0～2个组合调仓批次上限。策略变更默认下一个交易时段生效；紧急安全变更必须保存审批、原因和生效时间。
 
 ## 7. 特征计算
 
@@ -224,7 +260,7 @@ Redis丢失不能造成硬风险事件遗漏；关键窗口和事件需有可恢
 - 增加在线变点检测和市场状态条件模型。
 - 增加组合级、行业级和相关性异常事件。
 - 增加影子规则，对比新旧规则但不触发生产决策。
-- 将监控事件纳入策略回测和事后归因。
+- 阶段10将监控事件纳入日频目标组合、调仓预算、A股执行约束和成本后的联合回放；阶段12继续进行Paper/Shadow对照。
 
 ## 18. 验收标准
 

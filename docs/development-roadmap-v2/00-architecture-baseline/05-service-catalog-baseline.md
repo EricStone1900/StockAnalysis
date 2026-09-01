@@ -13,8 +13,8 @@
 | market-monitor-service | Watchlist、Bar、AnomalyEvent | market_monitor | 行情流、REST | NATS 异常事件 | 行情主事实、持仓 |
 | market-regime-service | Regime 定义与 MarketRegimeSnapshot | market_regime | REST、数据版本事件 | NATS Regime 事件 | 行情主事实、RiskPolicy |
 | portfolio-risk-service | Account、Ledger、PortfolioSnapshot、RiskPolicy、RiskEvaluation | portfolio_risk | REST、Fill 事件 | NATS 组合/风控事件 | Proposal、Approval、Order |
-| decision-governance-service | TradeProposal、RiskReview 关联、审批、频率预算 | decision_governance | REST、Agent/Risk 事件 | NATS 决策事件 | Portfolio、Fill、Broker 订单 |
-| trade-execution-service | OrderIntent、订单、人工 Fill、对账结果 | trade_execution | 鉴权 REST、审批事件 | NATS Fill 事件 | Proposal、RiskPolicy、PortfolioSnapshot |
+| decision-governance-service | 组合级TradeProposal、RiskReview关联、审批、DecisionBudgetReservation | decision_governance | REST、Agent/Risk事件 | NATS决策/预算事件 | Portfolio、Fill、Broker订单 |
+| trade-execution-service | RebalanceBatch、OrderIntent、订单、人工Fill、对账结果 | trade_execution | 鉴权REST、审批/预算命令 | NATS批次/Fill事件 | Proposal、RiskPolicy、PortfolioSnapshot |
 | platform-api-service | 无领域事实；仅认证、RBAC、请求审计和短生命周期查询缓存 | platform_api | Web REST/SSE | 生成 Client 调用 | 所有领域 Aggregate |
 | workflow-orchestration-service | Workflow History、调度和人工等待状态 | temporal | Schedule、Signal、Activity | 受控 REST/事件 | 所有领域 Aggregate |
 | agent-service | AgentRun、ModelRun、Assessment | agent_runtime | Tool、任务、事件 | NATS Assessment 事件 | Portfolio、Risk、Proposal、Order、Fill |

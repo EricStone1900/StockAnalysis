@@ -26,7 +26,7 @@ platform-api Controller只能转发鉴权命令；decision-governance领域层�
 
 第一版至少包含：
 
-- maxDailyTradeBatches。
+- maxDailyRebalanceBatches、allowedSecondBatchReasons。
 - maxSinglePositionWeight、maxIndustryWeight、maxTotalExposure。
 - maxDailyTurnover、minimumCashRatio。
 - maxPortfolioDrawdown、maxSingleTradeLoss。
@@ -50,8 +50,8 @@ interface RiskRule {
 绑定decisionId、proposalVersion、portfolioSnapshotId和riskPolicyVersion。任一版本变化使旧PASS失效。
 
 ```ts
-if (context.executedTradeBatchesToday >= policy.maxDailyTradeBatches) {
-  violations.push({ ruleId: 'MAX_DAILY_TRADE_BATCHES', status: 'REJECT' });
+if (context.reservedAndConsumedRebalanceBatches >= policy.maxDailyRebalanceBatches) {
+  violations.push({ ruleId: 'MAX_DAILY_REBALANCE_BATCHES', status: 'REJECT' });
 }
 ```
 
@@ -72,13 +72,14 @@ if (context.executedTradeBatchesToday >= policy.maxDailyTradeBatches) {
 ## 测试案例
 
 1. 风险复核PASS但单股仓位超限时硬风控REJECT。
-2. 第3个交易批次被拒绝。
+2. 第3个组合调仓批次和非法第二批reason被拒绝。
 3. 连续数周无交易不产生错误。
 4. 人工修改仓位后旧RiskEvaluation失效。
 5. 重复approve命令只产生一次状态变化。
 6. RiskPolicy变更后旧PASS不能执行。
 7. 风控模块异常时BUY默认拒绝。
 8. OBSERVE_ONLY下可以生成HOLD/报告但不能创建可执行指令。
+9. 并发预留只有一个成功；执行响应不确定时保持DISPATCHING并查询，不释放额度。
 
 ## 完成条件
 

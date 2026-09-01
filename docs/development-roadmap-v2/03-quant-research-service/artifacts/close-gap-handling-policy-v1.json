@@ -1,0 +1,9 @@
+{
+  "policy_version": "v1-assume-suspension-on-read",
+  "mode": "assume_suspension_on_read",
+  "applicable_universe_version": "cn-a-main-board-v1",
+  "bse_exclusion_enabled": true,
+  "approval_reference": "stage03-development-candidate-only",
+  "acknowledged_by": "research-operator",
+  "approved_at": "2026-08-30T00:00:00Z"
+}

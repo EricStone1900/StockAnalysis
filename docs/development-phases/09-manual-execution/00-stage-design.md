@@ -2,7 +2,7 @@
 
 ## 目标
 
-在独立`trade-execution-service`中把已批准建议转换为人工OrderIntent并记录提交、成交和撤销；由独立`portfolio-risk-service`消费确认成交、更新组合流水并完成日终对账。
+在独立`trade-execution-service`中把已批准组合级建议和有效预算预留原子转换为RebalanceBatch及人工OrderIntent[]，记录提交、成交和撤销；由独立`portfolio-risk-service`消费确认成交、更新组合流水并完成日终对账。
 
 ## 开发边界
 
@@ -10,10 +10,10 @@
 
 ## 实施要求
 
-- OrderIntent、Fill和Ledger均使用不可变ID和幂等键。
+- RebalanceBatch、OrderIntent、Fill和Ledger均使用不可变ID和幂等键。
 - 订单状态不能跳跃，撤销不能删除已有成交。
 - 组合从流水重建，对账差异不能自动覆盖事实。
-- 全链路保留decisionId和riskEvaluationId。
+- 全链路保留decisionId、proposalVersion、reservationId、rebalanceBatchId和riskEvaluationId。
 - 两个服务使用独立Database/User，confirmed Fill通过NATS + Outbox/Inbox传递，重复事件只入账一次。
 
 ## 顺序文档
@@ -24,7 +24,7 @@
 
 ## 阶段验收
 
-- 只有APPROVED且RiskEvaluation有效的建议能创建READY指令。
+- 只有APPROVED、RiskEvaluation和DecisionBudgetReservation均有效的建议能原子创建RebalanceBatch和READY指令。
 - 重复提交和重复成交回填保持幂等。
 - 持仓、现金和成交可以完整对账。
 - 决策到成交形成完整时间线。

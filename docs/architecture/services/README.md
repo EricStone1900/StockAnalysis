@@ -11,7 +11,7 @@
 - 所有基础服务均是Monorepo中的独立项目，拥有独立Dockerfile、数据库、API/事件契约、迁移和测试，可单独构建与部署。
 - 六个Agent复用一个`agent-service`工程和镜像，使用不同配置部署为六个独立容器，不复制六套Kernel代码。
 - NATS JetStream传播领域事件，Temporal编排长流程，REST/OpenAPI处理需要即时答复的查询与命令。
-- 当前为低频辅助决策：每天最多1～2个交易批次，允许长期不交易，人工审批和人工执行是不可绕过的边界。
+- 当前为低频辅助决策：每个组合每天允许0～2个组合调仓批次，一次批次可以包含多个证券委托；允许长期不交易，人工审批和人工执行是不可绕过的边界。
 
 ## 2. 独立微服务项目
 
@@ -26,8 +26,8 @@
 | [market-monitor-service](./market-monitor-worker.md) | vn.py、River、规则引擎 | Watchlist、分钟聚合、异常事件；文档保留worker文件名 |
 | [market-regime-service](./market-regime-service.md) | FastAPI、Qlib/River/ruptures | 指数、宽度、波动、行业和市场状态快照 |
 | [portfolio-risk-service](./portfolio-risk-service.md) | NestJS、PostgreSQL | 账户、成交账本、持仓投影、RiskPolicy和硬风控 |
-| [decision-governance-service](./decision-governance-service.md) | NestJS、PostgreSQL | TradeProposal、复核关联、频率预算、批准状态机和审计 |
-| [trade-execution-service](./trade-execution-service.md) | NestJS、Broker Adapter | OrderIntent、人工成交、Paper/Shadow、订单和对账 |
+| [decision-governance-service](./decision-governance-service.md) | NestJS、PostgreSQL | 组合级TradeProposal、复核关联、调仓预算预留、批准状态机和审计 |
+| [trade-execution-service](./trade-execution-service.md) | NestJS、Broker Adapter | RebalanceBatch、OrderIntent、人工成交、Paper/Shadow、订单和对账 |
 
 ### 2.2 平台服务
 
@@ -110,7 +110,7 @@ market-data/gateway -> market-monitor-service规则与River
   -> 必要时Signal决策Workflow
 ```
 
-盯盘默认按1分钟输入、5分钟聚合，可按异常自适应加密；它不是每5分钟要求主Agent交易。
+盯盘免费首版每10分钟批量采样、P0/P1/P2按10/20/30分钟分层评估，可按版本化阈值升级关注；它不重新计算日频Alpha，也不要求主Agent产生交易。
 
 ### 6.3 低频决策
 
@@ -120,11 +120,12 @@ market-data/gateway -> market-monitor-service规则与River
   -> risk-review-agent
   -> portfolio-risk-service硬风控
   -> decision-governance-service频率预算与人工批准
-  -> trade-execution-service人工OrderIntent/Fill
+  -> decision-governance-service原子预留调仓预算
+  -> trade-execution-service原子创建RebalanceBatch和人工OrderIntent[]/Fill[]
   -> portfolio-risk-service更新账本投影
 ```
 
-只有`PASS`且硬风控通过的建议才能进入审批；`NO_TRADE`是正常结果。每日1～2次是上限，不得实现为最低次数或强制交易目标。
+只有`PASS`且硬风控通过的建议才能进入审批；`NO_TRADE`是正常结果。每日0～2个组合调仓批次是上限，不得实现为最低次数或强制交易目标；具体语义遵循[ADR-010](../adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 ## 7. 推荐开发顺序
 

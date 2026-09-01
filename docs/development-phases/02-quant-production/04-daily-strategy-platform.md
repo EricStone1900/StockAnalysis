@@ -401,6 +401,6 @@ python -m pytest tests/integration/test_daily_strategy_pipeline.py
 - 新增Fake第三方策略只增加插件包和Manifest，不修改Application层、Agent或Workflow。
 - 第三方Runner无生产数据库、模型、NATS和券商访问能力。
 - 策略版本、参数、数据、成本模型、代码和镜像Digest均可追溯。
-- 日频计算允许长期NO_REBALANCE，不改变每日最多1～2个交易批次的硬限制。
+- 日频计算允许长期NO_REBALANCE，不创建组合调仓批次；每日0～2批硬限制由阶段05及以后按ADR-010实现。
 - 只有ACTIVE策略快照能进入Agent上下文。
 - 所有测试命令通过并记录结果。

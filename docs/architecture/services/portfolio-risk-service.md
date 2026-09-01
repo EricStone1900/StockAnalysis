@@ -56,7 +56,8 @@ RiskPolicy：
 - maxIndustryWeight。
 - maxTotalExposure。
 - maxDailyTurnover。
-- maxDailyTradeBatches。
+- maxDailyRebalanceBatches。
+- allowedSecondBatchReasons。
 - maxPortfolioDrawdown。
 - maxSingleTradeLoss。
 - minimumCashRatio。
@@ -67,19 +68,20 @@ RiskPolicy：
 
 ## 6. 预交易风控
 
-输入为TradeProposal、当前PortfolioSnapshot和可选MarketRegimeSnapshot引用，输出：
+输入为包含全部RebalanceLeg的组合级TradeProposal、当前PortfolioSnapshot、DecisionBudgetSnapshot和可选MarketRegimeSnapshot引用，输出：
 
 - decisionId和proposalVersion。
 - result：PASS、REJECT、REQUIRES_REVIEW。
 - violatedRules。
 - before 和 projectedAfter 风险指标。
-- maximumAllowedQuantity 或 maximumAllowedWeight。
+- 每个Leg的maximumAllowedQuantity或maximumAllowedWeight。
+- 整体组合before和projectedAfter指标。
 - riskPolicyVersion。
 - evaluatedAt。
 
 至少检查：
 
-1. 每日交易批次是否超过 1～2 次上限。
+1. 当前RiskPolicy允许的每日组合调仓批次和第二批reason；最终并发预留由decision-governance-service执行。
 2. 是否处于冷却时间。
 3. 单股和行业仓位。
 4. 总风险暴露和现金比例。
@@ -88,8 +90,11 @@ RiskPolicy：
 7. 数据是否过期。
 8. 停牌、涨跌停和流动性风险。
 9. 建议是否引用有效的持仓和行情版本。
+10. 全部Leg共同执行后的组合风险；禁止逐Leg通过后形成整体超限。
 
 市场状态可以触发更保守的已发布RiskPolicy分支，但不能由Agent文本临时修改数值阈值；评估结果记录marketRegimeSnapshotId和实际使用的riskPolicyVersion。
+
+`maxDailyRebalanceBatches`和`allowedSecondBatchReasons`由本服务的RiskPolicy拥有并随RiskEvaluation返回；decision-governance-service只按该版本建立预算投影和原子预留，不得维护可独立修改的上限副本。
 
 每周 1～2 次仅用于策略观察和报告，不作为强制最低交易次数。
 
@@ -114,6 +119,7 @@ RiskPolicy：
 - 自动交易阶段以券商成交回报为来源，并通过日终对账纠正差异。
 - 行情估值和持仓数量使用不同版本字段，不混为一体。
 - 风控评估绑定具体decisionId、proposalVersion和portfolioSnapshotId；建议版本或持仓发生变化必须重新评估。
+- 风控评估绑定targetPortfolioVersion和完整Leg集合的contentHash；增删或修改任一Leg均使旧评估失效。
 - 风险策略变更采用发布版本，不修改历史评估。
 
 ## 9. 可靠性和安全
@@ -141,3 +147,4 @@ RiskPolicy：
 - 新proposalVersion不能复用旧版本的RiskEvaluation。
 - 风控服务故障不会导致交易默认放行。
 - 每条违反规则都有稳定 ruleId 和可读说明。
+- 多Leg建议只产生一个组合级RiskEvaluation，并能解释每个Leg及整体projectedAfter结果。

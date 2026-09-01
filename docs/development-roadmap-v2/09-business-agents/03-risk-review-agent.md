@@ -6,7 +6,7 @@
 2. 复核阶段固定为：独立阅读证据、验证主张、对照Proposal、构建反方/下行情景、输出结论。
 3. 输出PASS、PASS_WITH_CONDITIONS、REJECT或INSUFFICIENT_EVIDENCE。
 4. 默认使用与主Agent不同的Claude Profile；高风险可运行第二Reviewer并确定性合并。
-5. 检查策略状态、新鲜度、成本、滑点、换手、容量、Regime适配、NO_TRADE基线和证据反例。
+5. 检查策略状态、新鲜度、成本、滑点、换手、容量、Regime适配、NO_TRADE基线、全部Leg共同作用和证据反例。
 6. 风险Agent只给语义复核；最终仓位、批次和回撤由portfolio-risk确定性执行。
 
 ```ts
@@ -26,3 +26,4 @@ interface RiskReviewResult {
 
 旧Packet、证据缺失、模型冲突、所有Provider失败、条件修订和主建议确认偏差。
 
+多Leg建议必须作为一个不可变Proposal整体复核；风险Agent不能删除高风险Leg后把其余Leg直接放行，任何修改都生成新proposalVersion。

@@ -16,6 +16,7 @@
 - 连续数周无交易。
 - 主AgentBUY而风险AgentREJECT。
 - 模型幻觉不存在evidenceId。
+- 一次多股票目标组合只形成一个Proposal；拆票规避每日批次必须失败。
+- 盘中异常允许风险减仓但不产生第二批新Alpha调仓。
 
 评估结果保存AgentVersion、PromptVersion、ModelProfile和FixtureVersion。
-

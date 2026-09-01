@@ -5,7 +5,7 @@
 1. 定义BrokerPort的place、cancel、query、positions和fills；先用Broker认证测试环境完成Contract。
 2. Adapter将内部SecurityId、Decimal和OrderType映射为券商协议，保存外部Request/Order/Fill ID。
 3. 自动执行只允许白名单账户、标的、时段、最大金额和已批准策略版本。
-4. 下单前再次校验Proposal、RiskReview、RiskEvaluation、Approval、价格偏差、交易批次和Kill Switch。
+4. 原子接受RebalanceBatch前再次校验Proposal、全部Leg、RiskReview、组合级RiskEvaluation、Approval、DecisionBudgetReservation、价格偏差、每日0～2批和Kill Switch。
 5. 请求超时后先query，不确定状态标UNKNOWN，禁止自动重下。
 6. Web提供双人审批、暂停、恢复和只读订单时间线。
 
@@ -22,4 +22,4 @@ interface BrokerPort {
 - 请求成功但响应丢失、重复回报、乱序Fill和Broker断线。
 - 白名单、金额、时段、过期和价格偏差拒绝。
 - UNKNOWN不自动重下。
-
+- 多Leg只创建一个RebalanceBatch；Broker逐单失败不得创建新的批次规避预算。

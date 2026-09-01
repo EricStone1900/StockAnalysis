@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import psycopg
 from pydantic import BaseModel, Field
@@ -177,6 +178,23 @@ class PostgresSourceLineageRepository:
                 FROM data_versions WHERE version_id = %s""",
                 (version_id,),
             ).fetchone()
+        return self._data_version_from_row(row)
+
+    def latest_ready_data_version(self) -> DataVersion | None:
+        """为跨服务只读API恢复重启前已持久化的READY版本。"""
+        with psycopg.connect(self.database_url) as connection:
+            row = connection.execute(
+                """SELECT version_id, status, scope, source_version, source_release_tag,
+                source_policy_version, source_manifest_hash, artifact_uri, artifact_hash,
+                quality_report_uri, close_gap_index_uri, close_gap_index_hash,
+                quality_status, available_at, content_hash, parent_version_id
+                FROM data_versions WHERE status = 'READY'
+                ORDER BY available_at DESC, version_id DESC LIMIT 1"""
+            ).fetchone()
+        return self._data_version_from_row(row)
+
+    @staticmethod
+    def _data_version_from_row(row: tuple[Any, ...] | None) -> DataVersion | None:
         if row is None:
             return None
         return DataVersion(

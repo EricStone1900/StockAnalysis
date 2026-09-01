@@ -154,7 +154,9 @@ interface RebalancePolicy {
 }
 ```
 
-再平衡策略不能覆盖`portfolio-risk-service`的每日交易批次、仓位、暴露和回撤上限。
+再平衡策略不能覆盖RiskPolicy中的每日组合调仓批次、仓位、暴露和回撤上限，也不能绕过`decision-governance-service`的预算预留。
+
+`allowEventTriggeredRebalance`只表示该策略快照可作为盘中重新评估的生产证据，不表示`quant-research-service`在盘中直接创建Proposal、占用预算或下单。事件触发后的组合级TradeProposal、每日0～2批预算和RebalanceBatch语义遵循[ADR-010](../adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 ### 4.4 StrategyEvaluation
 
@@ -273,6 +275,7 @@ class StrategyResult(BaseModel):
 StrategyResult不能包含：
 
 - `Order`或券商请求。
+- `TradeProposal`、`DecisionBudgetReservation`或`RebalanceBatch`。
 - `APPROVED`状态。
 - 规避RiskPolicy的字段。
 - 任意SQL、脚本或下一步执行指令。

@@ -30,9 +30,11 @@ def test_security_repository_enforces_versioned_updates() -> None:
     repository = PostgresSecurityRepository(os.environ["MARKET_DATA_DATABASE_URL"])
     migration = Path(__file__).parents[2] / "migrations/001_security_calendar.sql"
     repository.migrate(migration)
-    security_id = SecurityId(exchange=Exchange.SSE, symbol="600000")
+    security_id = SecurityId(exchange=Exchange.SSE, symbol="600777")
     with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"], autocommit=True) as connection:
-        connection.execute("DELETE FROM securities WHERE security_id = %s", ("SSE:600000",))
+        connection.execute("DELETE FROM close_gap_reconciliations WHERE security_id = %s", ("SSE:600777",))
+        connection.execute("DELETE FROM trading_status_facts WHERE security_id = %s", ("SSE:600777",))
+        connection.execute("DELETE FROM securities WHERE security_id = %s", ("SSE:600777",))
     repository.save(Security(security_id=security_id, name="浦发银行"))
     updated = repository.update_status(security_id, SecurityStatus.SUSPENDED, expected_version=1)
     assert updated.status is SecurityStatus.SUSPENDED
@@ -47,39 +49,37 @@ def test_source_lineage_migration_preserves_financial_revision_constraints() -> 
     with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"], autocommit=True) as connection:
         connection.execute((migration_dir / "001_security_calendar.sql").read_text())
         connection.execute((migration_dir / "002_source_lineage.sql").read_text())
-        connection.execute("DELETE FROM field_provenance")
-        connection.execute("DELETE FROM reconciliation_results")
-        connection.execute("DELETE FROM financial_facts")
-        connection.execute("DELETE FROM raw_artifacts")
-        connection.execute("DELETE FROM source_policies")
-        connection.execute("DELETE FROM securities WHERE security_id = %s", ("SSE:600001",))
+        connection.execute("DELETE FROM financial_facts WHERE raw_artifact_hash = %s", ("1" * 64,))
+        connection.execute("DELETE FROM raw_artifacts WHERE raw_artifact_hash = %s", ("1" * 64,))
+        connection.execute("DELETE FROM source_policies WHERE policy_version = %s", ("test-financial-v1",))
+        connection.execute("DELETE FROM securities WHERE security_id = %s", ("SSE:600778",))
         connection.execute(
             "INSERT INTO securities (security_id, exchange, symbol, name, status) VALUES (%s, %s, %s, %s, %s)",
-            ("SSE:600001", "SSE", "600001", "测试证券", "ACTIVE"),
+            ("SSE:600778", "SSE", "600778", "测试证券", "ACTIVE"),
         )
         connection.execute(
             "INSERT INTO source_policies (policy_version, primary_source, policy_document_uri) VALUES (%s, %s, %s)",
-            ("v1", "investment_data", "docs://source-policy/v1"),
+            ("test-financial-v1", "investment_data", "docs://source-policy/v1"),
         )
         connection.execute(
             """INSERT INTO raw_artifacts (
             raw_artifact_hash, source, source_record_id, source_version, raw_artifact_uri,
             license_ref, source_policy_version, ingested_at
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, now())""",
-            ("c" * 64, "cninfo", "notice-1", "2026-04-01", "minio://artifacts/raw/notice-1.pdf", "cninfo-disclosure", "v1"),
+            ("1" * 64, "cninfo", "notice-1", "2026-04-01", "minio://artifacts/raw/notice-1.pdf", "cninfo-disclosure", "test-financial-v1"),
         )
         connection.execute(
             """INSERT INTO financial_facts (
             security_id, fact_type, period_end, value, announced_at, available_at, revision, raw_artifact_hash
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-            ("SSE:600001", "revenue", "2025-12-31", "100", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z", 1, "c" * 64),
+            ("SSE:600778", "revenue", "2025-12-31", "100", "2026-03-01T00:00:00Z", "2026-03-02T00:00:00Z", 1, "1" * 64),
         )
         with pytest.raises(psycopg.IntegrityError):
             connection.execute(
                 """INSERT INTO financial_facts (
                 security_id, fact_type, period_end, value, announced_at, available_at, revision, raw_artifact_hash
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                ("SSE:600001", "revenue", "2025-12-31", "120", "2026-04-01T00:00:00Z", "2026-04-02T00:00:00Z", 2, "c" * 64),
+                ("SSE:600778", "revenue", "2025-12-31", "120", "2026-04-01T00:00:00Z", "2026-04-02T00:00:00Z", 2, "1" * 64),
             )
 
 
@@ -89,14 +89,11 @@ def test_source_lineage_repository_is_idempotent_and_rejects_provenance_rewrite(
     with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"], autocommit=True) as connection:
         connection.execute((migration_dir / "001_security_calendar.sql").read_text())
         connection.execute((migration_dir / "002_source_lineage.sql").read_text())
-        connection.execute("DELETE FROM field_provenance")
-        connection.execute("DELETE FROM reconciliation_results")
-        connection.execute("DELETE FROM financial_facts")
-        connection.execute("DELETE FROM raw_artifacts")
-        connection.execute("DELETE FROM source_policies")
+        connection.execute("DELETE FROM raw_artifacts WHERE raw_artifact_hash = %s", ("2" * 64,))
+        connection.execute("DELETE FROM source_policies WHERE policy_version = %s", ("test-lineage-v1",))
     repository = PostgresSourceLineageRepository(os.environ["MARKET_DATA_DATABASE_URL"])
     policy = SourcePolicy(
-        policy_version="v1", primary_source="investment_data", policy_document_uri="docs://source-policy/v1"
+        policy_version="test-lineage-v1", primary_source="investment_data", policy_document_uri="docs://source-policy/v1"
     )
     artifact = RawArtifact(
         source="investment_data",
@@ -104,9 +101,9 @@ def test_source_lineage_repository_is_idempotent_and_rejects_provenance_rewrite(
         source_version="b" * 40,
         source_release_tag="2026-08-28",
         raw_artifact_uri="minio://artifacts/raw/investment_data/2026-08-28/archive.tar.gz",
-        raw_artifact_hash="d" * 64,
+        raw_artifact_hash="2" * 64,
         license_ref="https://example.test/license",
-        source_policy_version="v1",
+        source_policy_version="test-lineage-v1",
         ingested_at=datetime.now(UTC),
     )
 
@@ -117,7 +114,7 @@ def test_source_lineage_repository_is_idempotent_and_rejects_provenance_rewrite(
 
     with pytest.raises(ValueError, match="immutable"):
         repository.ensure_policy(
-            SourcePolicy(policy_version="v1", primary_source="other", policy_document_uri="docs://source-policy/v1")
+            SourcePolicy(policy_version="test-lineage-v1", primary_source="other", policy_document_uri="docs://source-policy/v1")
         )
     with pytest.raises(ValueError, match="different provenance"):
         repository.save_raw_artifact(artifact.model_copy(update={"source_record_id": "rewritten"}))

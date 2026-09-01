@@ -233,17 +233,50 @@ MarketMonitorAssessment：
 - confidence、validUntil。
 - agentRunId、modelRunMetadata。
 
-TradeProposal：
+TradeProposal是组合级建议，不是单只股票订单：
 
-- decisionId、proposalVersion、portfolioId、strategyId、symbol。
-- action：BUY、SELL、HOLD。
-- targetWeight或quantity。
-- validFrom、expiresAt、confidence。
-- reasons、risks、assumptions、evidenceIds。
-- quantSnapshotId、newsSnapshotId、portfolioSnapshotId。
-- strategySnapshotIds，以及可选ensembleStrategySnapshotId；每个引用必须能解析到当时为ACTIVE的不可变StrategyVersion和评估记录。
-- marketRegimeSnapshotId、anomalyEventIds。
-- agentRunId。风险复核通过decisionId和proposalVersion关联，不回写并修改原TradeProposal。
+```ts
+interface RebalanceLeg {
+  legId: string;
+  symbol: string;
+  exchange: string;
+  side: 'BUY' | 'SELL';
+  targetWeight?: string;
+  quantity?: string;
+  reasonCodes: string[];
+}
+
+interface TradeProposal {
+  decisionId: string;
+  proposalVersion: number;
+  portfolioId: string;
+  strategyId: string;
+  proposalAction: 'HOLD' | 'REBALANCE';
+  rebalanceReason?:
+    | 'DAILY_TARGET'
+    | 'INTRADAY_RISK_REDUCTION'
+    | 'EXECUTION_CORRECTION';
+  targetPortfolioVersion?: string;
+  legs: RebalanceLeg[];
+  validFrom: string;
+  expiresAt: string;
+  confidence: number;
+  reasons: string[];
+  risks: string[];
+  assumptions: string[];
+  evidenceIds: string[];
+  quantSnapshotId: string;
+  newsSnapshotId?: string;
+  portfolioSnapshotId: string;
+  strategySnapshotIds: string[];
+  ensembleStrategySnapshotId?: string;
+  marketRegimeSnapshotId?: string;
+  anomalyEventIds: string[];
+  agentRunId: string;
+}
+```
+
+`HOLD`的`legs`必须为空且不进入审批或预算预留；`REBALANCE`必须至少包含一个Leg。每个策略快照引用必须能解析到当时为ACTIVE的不可变StrategyVersion和评估记录。风险复核通过decisionId和proposalVersion关联，不回写并修改原TradeProposal。
 
 ## 13. 风险复核契约
 
@@ -320,19 +353,43 @@ TradeProposal：
 
 ## 14. 风控和执行契约
 
-RiskEvaluation包含：
+RiskEvaluation针对整个组合级TradeProposal计算，包含：
 
-- evaluationId、decisionId、proposalVersion、portfolioSnapshotId。
+- evaluationId、decisionId、proposalVersion、portfolioSnapshotId、targetPortfolioVersion。
 - riskPolicyVersion、evaluatedAt、expiresAt。
 - result：PASS、REJECT、REQUIRES_REVIEW。
-- violatedRules、beforeMetrics、projectedAfterMetrics。
-- maximumAllowedQuantity或maximumAllowedWeight。
+- violatedRules、legResults、beforeMetrics、projectedAfterMetrics。
+- maximumAllowedQuantities或maximumAllowedWeights。
+
+DecisionBudgetReservation包含：
+
+- reservationId、portfolioId、tradingDate、sequence、decisionId、proposalVersion。
+- maxDailyRebalanceBatches、riskPolicyVersion。
+- status：RESERVED、DISPATCHING、CONSUMED、RELEASED、EXPIRED。
+- reservedAt、expiresAt、consumedAt、releasedAt、idempotencyKey。
+
+DecisionBudgetSnapshot包含：
+
+- budgetSnapshotId、portfolioId、tradingDate、asOf。
+- maxDailyRebalanceBatches、reservedBatches、consumedBatches和remainingBatches。
+- allowedSecondBatchReasons、riskPolicyVersion和contentHash。
+
+DecisionBudgetSnapshot用于组合级RiskEvaluation的当时输入，但不承担并发放行；最终额度必须由decision-governance-service原子预留。`maxDailyRebalanceBatches`、`allowedSecondBatchReasons`和`riskPolicyVersion`只能来自portfolio-risk-service发布的有效RiskPolicy结果，Governance只拥有用量、预留和状态，不得自行修改政策值。
+
+RebalanceBatch包含：
+
+- rebalanceBatchId、portfolioId、tradingDate、sequence和reason。
+- decisionId、proposalVersion、approvalId、riskEvaluationId、budgetReservationId。
+- targetPortfolioVersion、orderIntentIds、acceptedAt、contentHash和idempotencyKey。
+- status：ACCEPTED、IN_PROGRESS、PARTIALLY_FILLED、COMPLETED、CANCELLED、EXPIRED、FAILED、UNKNOWN。
 
 OrderIntent包含：
 
-- orderIntentId、decisionId、riskEvaluationId。
+- orderIntentId、rebalanceBatchId、legId、decisionId、proposalVersion、riskEvaluationId。
 - accountId、symbol、side、quantity、orderType、limitPrice。
 - validUntil、status、idempotencyKey。
+
+同一`rebalanceBatchId`下的多个OrderIntent、部分成交、撤单重报和相同幂等键重试只计一个调仓批次。调用执行前预留转为DISPATCHING，执行服务原子接受RebalanceBatch后转为CONSUMED；只有执行服务明确确认未接受批次时才允许RELEASED。超时或响应丢失时保持DISPATCHING并按幂等键查询，不得推断失败。
 
 Fill包含：
 
@@ -353,8 +410,8 @@ Fill包含：
 | AgentRun、ModelRun、AgentAssessment | 对应agent-service部署 |
 | RiskReviewResult与Proposal关联 | decision-governance-service；模型运行明细由risk-review-agent拥有 |
 | PortfolioSnapshot、RiskEvaluation | portfolio-risk-service |
-| TradeProposal、Approval | decision-governance-service |
-| OrderIntent、Order、Fill | trade-execution-service |
+| TradeProposal、Approval、DecisionBudgetReservation、DecisionBudgetSnapshot | decision-governance-service |
+| RebalanceBatch、OrderIntent、Order、Fill | trade-execution-service |
 | Workflow状态 | Temporal |
 
 其他服务只能通过API、事件或Artifact读取，不能跨Schema直接写入。

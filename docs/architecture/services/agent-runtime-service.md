@@ -26,7 +26,7 @@ DeepSeek、Claude和OpenAI属于可切换模型服务，不是本系统必须绑
 | financial-news-agent | 对候选股票和持仓股票的新闻事件判断方向、强度、时效和价格影响 | [news-intelligence-service](./news-intelligence-service.md) | [FinNLP](https://github.com/AI4Finance-Foundation/FinNLP)用于财经数据采集适配参考；[AKShare](https://github.com/akfamily/akshare)用于原型数据接口；[RSSHub](https://github.com/DIYgod/RSSHub)用于自建RSS入口；pgvector用于语义检索 | DeepSeek快速模型做初筛，推理模型处理重要事件。采集、去重和实体关联在Python服务完成，Agent只分析结构化NewsEventCandidate及证据 |
 | market-monitor-agent | 解释交易时段HIGH/CRITICAL异常行情事件，输出IGNORE、WATCH、REASSESS或RISK_ESCALATION | [market-monitor-service](./market-monitor-worker.md)、[market-data-service](./market-data-service.md) | [vn.py](https://github.com/vnpy/vnpy)用于行情Gateway与事件接入；[River](https://github.com/online-ml/river)用于在线异常和漂移评分；确定性异常规则负责主要触发 | DeepSeek快速模型即可，只有异常事件才调用。Agent不接Tick流、不计算5分钟Bar，也不控制止损或订单 |
 | market-state-agent | 解释指数、市场宽度、波动、流动性、资金和行业状态对候选股及组合的影响 | [market-regime-service](./market-regime-service.md)、[market-data-service](./market-data-service.md) | [Qlib](https://github.com/microsoft/qlib)做历史条件回测；[River](https://github.com/online-ml/river)做影子在线漂移；[ruptures](https://github.com/deepcharles/ruptures)做离线变化点研究；AKShare/vn.py提供原型或盘中数据接入 | DeepSeek推理模型为主。Agent只解释MarketRegimeSnapshot，不直接计算Regime或修改RiskPolicy |
-| main-decision-agent（主Agent） | 汇总股票、新闻、盯盘、市场状态、持仓和风险证据，形成版本化BUY、SELL或HOLD建议 | 上述全部分析服务、[workflow-orchestration-service](./workflow-orchestration-service.md)、[decision-governance-service](./decision-governance-service.md) | 自研Agent Kernel + Vercel AI SDK + Zod；[TradingAgents](https://github.com/TauricResearch/TradingAgents)和[FinRobot](https://github.com/AI4Finance-Foundation/FinRobot)仅用于角色分工和流程参考 | DeepSeek推理模型为主，可配置Claude/OpenAI影子模型。Temporal负责外层流程，主Agent不能直接审批、修改硬风控或下单 |
+| main-decision-agent（主Agent） | 汇总股票、新闻、盯盘、市场状态、持仓和风险证据，形成版本化组合级HOLD或REBALANCE建议 | 上述全部分析服务、[workflow-orchestration-service](./workflow-orchestration-service.md)、[decision-governance-service](./decision-governance-service.md) | 自研Agent Kernel + Vercel AI SDK + Zod；[TradingAgents](https://github.com/TauricResearch/TradingAgents)和[FinRobot](https://github.com/AI4Finance-Foundation/FinRobot)仅用于角色分工和流程参考 | DeepSeek推理模型为主，可配置Claude/OpenAI影子模型。Temporal负责外层流程，主Agent不能直接审批、修改硬风控或下单 |
 | risk-review-agent | 独立核对建议、证据、反方观点、下行情景和投资逻辑失效条件 | [agent-runtime-service](./agent-runtime-service.md)、[decision-governance-service](./decision-governance-service.md)、[portfolio-risk-service](./portfolio-risk-service.md)只读风险快照 | TradingAgents主要参考多空和激进/中性/保守风险视角；FinRobot参考财务风险证据；[ai-hedge-fund](https://github.com/virattt/ai-hedge-fund)参考Risk Manager/Portfolio Manager分离；[LangGraph.js](https://docs.langchain.com/oss/javascript/langgraph/overview)仅作为复杂内部复核图的可选实现 | Claude作为独立复核模型，DeepSeek作为备用或第二意见。它不替代portfolio-risk-service；[Open Policy Agent](https://www.openpolicyagent.org/)未来如采用也属于确定性硬风控层 |
 
 采用关系必须理解为：
@@ -140,9 +140,10 @@ Agent只读取[日频策略平台](./daily-strategy-extension-design.md)发布�
 
     decisionId
     asOf
-    action: BUY | SELL | HOLD
-    symbol
-    targetWeight
+    proposalAction: HOLD | REBALANCE
+    rebalanceReason
+    targetPortfolioVersion
+    legs[]: legId, symbol, exchange, BUY | SELL, targetWeight | quantity
     confidence
     reasons[]
     risks[]
@@ -151,7 +152,7 @@ Agent只读取[日频策略平台](./daily-strategy-extension-design.md)发布�
     dataFreshness
     modelRunMetadata
 
-输出先通过 Zod，再检查 evidenceId 是否存在、数据是否过期、数值是否在范围内。未通过时只能重试、降级或拒绝，不允许把原始文本直接送入交易治理层。
+HOLD的legs必须为空；REBALANCE至少包含一个Leg。输出先通过Zod，再检查evidenceId是否存在、数据是否过期、数值是否在范围内以及Leg集合是否与目标组合一致。未通过时只能重试、降级或拒绝，不允许把原始文本直接送入交易治理层，也不得拆分多个单票Proposal规避批次限制。
 
 ## 7. 模型路由建议
 

@@ -105,6 +105,27 @@ services:
       timeout: 3s
       retries: 20
 
+  quant-research-service:
+    build:
+      context: ../..
+      dockerfile: services/quant-research-service/Dockerfile
+    environment:
+      QUANT_RESEARCH_DATABASE_URL: postgresql://quant_research:quant_research_local_only@postgres:5432/quant_research
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_root_password
+      ARTIFACT_BUCKET: artifacts
+    secrets: [minio_root_password]
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+    ports: ["3001:3000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:3000/live')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }

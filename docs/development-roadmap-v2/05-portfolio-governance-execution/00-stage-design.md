@@ -15,9 +15,9 @@
 ## 关键边界
 
 - portfolio-risk拥有Ledger、PortfolioSnapshot、RiskPolicy和RiskEvaluation。
-- decision-governance拥有TradeProposal、Review Link、Approval和决策预算。
-- trade-execution拥有OrderIntent、Order、Fill和Reconciliation。
+- decision-governance拥有组合级TradeProposal、Review Link、Approval和DecisionBudgetReservation。
+- trade-execution拥有RebalanceBatch、OrderIntent、Order、Fill和Reconciliation。
 - Governance不能伪造Risk PASS；Execution不能自行创建未批准建议；Portfolio不能直接下单。
+- 每个组合每天允许0～2个RebalanceBatch。一个批次可以包含多个RebalanceLeg和OrderIntent；语义、计数时点和失败释放遵循[ADR-010](../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 本阶段不接真实Agent、Temporal或券商，使用Fixture和Fake Client形成确定性基础。
-

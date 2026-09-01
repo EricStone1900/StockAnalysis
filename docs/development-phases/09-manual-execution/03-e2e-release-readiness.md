@@ -12,12 +12,14 @@
 DataVersion READY
  -> DailyAnalysisSnapshot
  -> 新闻/Regime上下文
- -> 主Agent BUY
+ -> 主Agent组合级REBALANCE
  -> 风险复核 PASS
  -> 硬风控 PASS
  -> 人工批准
- -> OrderIntent READY
- -> 人工Fill
+ -> DecisionBudgetReservation DISPATCHING
+ -> RebalanceBatch ACCEPTED
+ -> OrderIntent[] READY
+ -> 人工Fill[]
  -> PortfolioSnapshot更新
 ```
 

@@ -37,6 +37,8 @@
 ## 3. 内部模块
 
     ApprovedInstructionConsumer
+    RebalanceBatchFactory
+    RebalanceBatchStateMachine
     OrderIntentValidator
     OrderStateMachine
     ManualExecutionAdapter
@@ -46,7 +48,25 @@
     ReconciliationEngine
     ExecutionAudit
 
-## 4. 订单状态机
+## 4. 调仓批次与订单状态机
+
+一个已批准的组合级TradeProposal原子创建一个RebalanceBatch及多个OrderIntent。若任一Leg在创建前校验失败，整个批次拒绝，不得留下部分READY Intent。
+
+RebalanceBatch状态：
+
+    ACCEPTED
+      -> IN_PROGRESS
+      -> PARTIALLY_FILLED
+      -> COMPLETED
+
+分支状态：
+
+    CANCELLED
+    EXPIRED
+    FAILED
+    UNKNOWN
+
+OrderIntent状态：
 
     DRAFT
       -> READY
@@ -67,20 +87,28 @@ UNKNOWN 表示发送结果或券商状态无法确认，必须查询或人工处
 
 ## 5. 指令校验
 
-发送或展示前检查：
+原子接受RebalanceBatch前检查：
 
 - decisionId 状态为 APPROVED。
 - hardRiskEvaluation 仍在有效期。
+- budgetReservationId有效、状态为RESERVED，且decisionId和proposalVersion一致。
+- targetPortfolioVersion、Leg集合和contentHash与批准版本一致。
 - portfolioSnapshotId 与当前状态未发生不可接受偏差。
 - 指令未过期。
 - 当前没有相同 idempotencyKey 的订单。
 - 市场、证券状态和交易时间允许。
 - 系统没有启用 Kill Switch。
 
+批次与全部DRAFT/READY OrderIntent持久化成功后才返回ACCEPTED，并请求decision-governance-service把DISPATCHING预留转为CONSUMED。原子接受明确失败时不得创建任何READY Intent，并请求释放预留；结果不确定时必须支持按rebalanceBatchId或幂等键查询。接受成功后，部分成交、撤销、过期、重报或失败均不释放调仓额度。
+
+Execution本地事务与Governance预算事务不组成分布式事务；接受结果通过同步响应、Outbox事件和幂等查询恢复。Governance仍为RESERVED或DISPATCHING时，不表示可以创建第二个替代批次。
+
 ## 6. API
 
 当前人工模式：
 
+- POST /internal/v1/rebalance-batches
+- GET /api/v1/rebalance-batches/{rebalanceBatchId}
 - POST /internal/v1/order-intents
 - GET /api/v1/order-intents
 - GET /api/v1/order-intents/{orderIntentId}
@@ -159,4 +187,5 @@ UNKNOWN 表示发送结果或券商状态无法确认，必须查询或人工处
 - UNKNOWN 状态不会自动重下单。
 - 只有有效批准和有效风控结果才能创建 READY 指令。
 - 所有成交都能追溯到 decisionId、orderIntentId 和券商回报。
-
+- 一个批准的组合级Proposal原子生成一个RebalanceBatch和多个OrderIntent，任何Leg失败都不会留下部分READY批次。
+- 同一rebalanceBatchId或幂等键重复提交不会重复创建批次或占用第二个预算名额。

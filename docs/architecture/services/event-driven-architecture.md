@@ -61,6 +61,9 @@ Payload包含业务必要字段和不可变Artifact引用，不包含新闻全�
 | `stock.decision.risk-review.completed.v1` | decision-governance | workflow、platform-api |
 | `stock.risk.evaluation.completed.v1` | portfolio-risk | governance、workflow |
 | `stock.decision.approval.completed.v1` | decision-governance | workflow、trade-execution |
+| `stock.decision.rebalance-budget.changed.v1` | decision-governance | workflow、trade-execution、audit |
+| `stock.execution.rebalance-batch.accepted.v1` | trade-execution | governance、workflow、platform-api、audit |
+| `stock.execution.rebalance-batch.completed.v1` | trade-execution | governance、portfolio-risk、platform-api、audit |
 | `stock.execution.fill.recorded.v1` | trade-execution | portfolio-risk、governance、audit |
 
 AsyncAPI文件位于`contracts/asyncapi/`，Payload Schema引用`contracts/schemas/`。新增或破坏性变更必须先更新契约和兼容性测试。
@@ -88,7 +91,7 @@ AsyncAPI文件位于`contracts/asyncapi/`，Payload Schema引用`contracts/schem
 
 适合事件：快照已发布、新闻已识别、异常已检测、成交已确认。
 
-不适合事件替代的操作：预交易硬风控、批准/拒绝、创建OrderIntent、修改RiskPolicy。它们使用鉴权同步命令，并由Temporal记录长流程状态。
+不适合事件替代的操作：预交易硬风控、批准/拒绝、原子预留调仓预算、创建RebalanceBatch和OrderIntent[]、修改RiskPolicy。它们使用鉴权同步命令并立即返回确定结果，由Temporal记录长流程状态。预算或批次事实事件用于审计、投影和恢复，不能代替同步命令结果；响应不确定时必须按幂等键查询权威服务。
 
 NATS事件可以启动或Signal Temporal Workflow；Workflow History只保存小型ID和摘要，再通过Activity读取Artifact，禁止写入Tick或大型模型上下文。
 

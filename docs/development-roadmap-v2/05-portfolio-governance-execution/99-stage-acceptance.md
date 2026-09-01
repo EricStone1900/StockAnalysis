@@ -2,9 +2,10 @@
 
 - [ ] 三个微服务分别完成自己的99验收。
 - [ ] 三服务使用独立Database/User和生成Client。
-- [ ] Fake建议到Fill/Portfolio闭环通过。
+- [ ] 多Leg Fake建议到RebalanceBatch、Fill和Portfolio闭环通过。
 - [ ] 风险复核、硬风控和人工审批均不可绕过。
 - [ ] 修改、过期和旧版本失效正确。
 - [ ] 重复、迟到、崩溃和恢复无重复副作用。
-- [ ] 每日1～2批硬限制和长期HOLD通过。
+- [ ] 每日0～2个组合调仓批次、长期HOLD和第二批reason限制通过。
+- [ ] 预算原子预留、接受前释放、接受后不释放以及同批次不重复计数通过。
 - [ ] 当前未接真实Agent、Temporal和生产Broker。

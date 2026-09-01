@@ -14,13 +14,13 @@
 - 按decisionId和proposalVersion关联不可变RiskReviewResult。
 - 调用 portfolio-risk-service 进行硬风控。
 - 管理人工审批、拒绝、修改和过期。
-- 管理每日交易批次和冷却时间。
-- 生成可交给 execution-service 的已批准指令草稿。
+- 管理每日组合调仓预算、预算预留和冷却时间。
+- 生成可交给 execution-service 的已批准组合调仓指令草稿。
 - 保存完整决策审计链。
 
 ## 3. 决策触发门控
 
-主 Agent 每 10 分钟“检查”不等于每 10 分钟“生成建议”。满足以下一项或多项才运行：
+主 Agent 在MonitorPolicy到期或事件触发时“检查”不等于生成建议。即使P0/P1/P2分别按10/20/30分钟评估，也只有满足以下一项或多项才运行：
 
 - 新的每日量化快照已发布。
 - 持仓或候选股发生重大新闻事件。
@@ -48,6 +48,7 @@
       -> HARD_RISK_PASSED
       -> PENDING_HUMAN_APPROVAL
       -> APPROVED
+      -> BUDGET_RESERVED
       -> SENT_TO_EXECUTION
       -> EXECUTED
 
@@ -58,6 +59,7 @@
     SUPERSEDED
     CANCELLED
     EXECUTION_FAILED
+    BUDGET_RELEASED
     REVISION_REQUIRED
     REVIEW_BLOCKED
 
@@ -70,13 +72,16 @@
 
 状态变化必须由明确命令触发并写审计，不允许直接更新数据库状态字段。
 
-## 5. TradeProposal 契约
+DecisionBudgetReservation是独立状态对象；`BUDGET_RESERVED`只表示已取得有效预留，不表示执行已接受。执行接受前失败进入`BUDGET_RELEASED`并关闭本次发送尝试；执行接受后预留转CONSUMED，Proposal进入`SENT_TO_EXECUTION`。
+
+## 5. 组合级TradeProposal契约
 
 至少包含：
 
-- decisionId、proposalVersion、portfolioId、strategyId、symbol。
-- action：BUY、SELL、HOLD。
-- targetWeight 或建议数量。
+- decisionId、proposalVersion、portfolioId、strategyId。
+- proposalAction：HOLD或REBALANCE。
+- rebalanceReason：DAILY_TARGET、INTRADAY_RISK_REDUCTION或EXECUTION_CORRECTION。
+- targetPortfolioVersion和`legs[]`；每个Leg包含legId、symbol、exchange、BUY/SELL及targetWeight或建议数量。
 - validFrom、expiresAt。
 - confidence。
 - reasons、risks、assumptions。
@@ -87,7 +92,7 @@
 
 治理服务只接受引用生产时为`ACTIVE`且不可变的策略快照。StrategyVersion后续停用不重写历史建议，但在创建新版本、重新复核或审批前必须重新校验当前可用性，并保存当时的StrategyVersion、参数Hash、代码/镜像Digest和成本模型版本。
 
-HOLD 也应保存，但不进入交易审批和当日交易批次计数。
+HOLD也应保存，但`legs`必须为空，不进入交易审批和当日组合调仓批次计数。REBALANCE至少包含一个Leg，风险复核和硬风控必须基于完整Leg集合，禁止把同一目标组合拆成多个单票Proposal规避批次或组合风险。
 
 ## 6. 风险复核结果治理
 
@@ -115,7 +120,7 @@ HOLD 也应保存，但不进入交易审批和当日交易批次计数。
 - 持仓快照是否变化。
 - 风险策略是否变化。
 - 最新行情是否超过允许偏差。
-- 当日交易次数是否仍符合限制。
+- 当日组合调仓预算是否仍可原子预留。
 
 修改建议后必须生成修订版本，重新经过风险复核和硬风控，不能沿用旧RiskReviewResult或RiskEvaluation的PASS结果。
 
@@ -131,18 +136,26 @@ HOLD 也应保存，但不进入交易审批和当日交易批次计数。
 - POST /internal/v1/decisions/{decisionId}/risk-result
 - POST /internal/v1/decisions/{decisionId}/execution-result
 - GET /api/v1/decision-budget/{portfolioId}
+- POST /internal/v1/decision-budget/reservations
+- POST /internal/v1/decision-budget/reservations/{reservationId}/consume
+- POST /internal/v1/decision-budget/reservations/{reservationId}/release
 
 risk-result写入必须同时校验proposalVersion、reviewId和幂等键。迟到的旧版本结果只保存审计，不推动当前状态机。
 
-## 9. 频率治理
+## 9. 组合调仓频率治理
 
-- maxDailyTradeBatches 是硬上限，默认 1～2。
+- `maxDailyRebalanceBatches`是硬上限，默认2，允许实际为0；`maxDailyTradeBatches`不再作为新契约字段。
+- 上限和第二批reason来自portfolio-risk-service的有效RiskPolicy/RiskEvaluation；治理服务只保存绑定policyVersion的预算投影并执行原子用量控制，不能自行提高上限。
 - maxRiskReviewRevisions是单次decision的复核修订上限，建议默认2；它不属于交易频次指标。
 - weeklyTradeTarget 是观察指标，不强制满足。
 - 连续数周无交易属于合法状态。
-- 同一股票的多次调整可以按策略定义合并为一个批次。
-- 是否计入批次以 execution-service 接受指令或成交为准，需统一定义。
-- 拒绝、过期和 HOLD 不计入真实交易批次，但单独统计模型建议频率。
+- 一个组合级Proposal可以包含多个Leg；执行服务把它原子转换为一个RebalanceBatch和多个OrderIntent。
+- 人工批准后、调用执行前，治理服务以`portfolioId + tradingDate`为并发隔离键原子创建`DecisionBudgetReservation`。没有有效预留不得请求执行。
+- 调用execution-service前预留转为DISPATCHING；执行服务原子接受RebalanceBatch时转为CONSUMED。只有执行明确确认未接受批次时才转为RELEASED；超时、响应丢失或结果不确定时保持DISPATCHING并按幂等键查询。
+- RebalanceBatch接受后，即使部分成交、撤销、过期、人工重报或最终失败也不释放额度；同一幂等键重试不重复计数。
+- Governance与Execution各自在本地事务内原子更新，不使用跨服务分布式事务；DISPATCHING预留依靠查询和事件恢复收敛。
+- 第一批通常使用DAILY_TARGET；第二批默认只允许INTRADAY_RISK_REDUCTION或EXECUTION_CORRECTION。其他原因必须由版本化策略和RiskPolicy显式开放，并引用通过联合回放与Shadow门禁的证据。
+- 拒绝、过期、HOLD和执行接受前的整体失败不计入真实调仓批次，但单独统计模型建议与预留失败频率。
 
 ## 10. 审计
 
@@ -155,6 +168,7 @@ risk-result写入必须同时校验proposalVersion、reviewId和幂等键。迟�
 - 硬风控输入和结果。
 - 人工操作人和理由。
 - 指令、成交与对账结果。
+- 预算预留、消费或释放，以及RebalanceBatch和全部Leg/OrderIntent。
 - 后续绩效归因。
 
 ## 11. 可靠性与安全
@@ -183,3 +197,6 @@ risk-result写入必须同时校验proposalVersion、reviewId和幂等键。迟�
 - 可以完整回放任意历史决策的状态变化和依据。
 - 有条件通过一定产生新proposalVersion并重新复核，旧版本结果不能用于放行。
 - 风险复核与硬风控任一层失败都不能默认进入人工批准或执行。
+- 每个组合每天第3个RebalanceBatch被拒绝；同批次多Leg、部分成交和重报不重复计数。
+- 预算预留并发安全，执行接受前失败可释放，接受后不得通过取消或失败恢复额度。
+- 执行接受响应丢失时不会释放额度或创建新批次，查询恢复后状态收敛。

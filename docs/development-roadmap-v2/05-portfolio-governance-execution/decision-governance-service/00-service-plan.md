@@ -2,7 +2,7 @@
 
 ## 目标与边界
 
-建立TradeProposal版本、风险复核链接、硬风控链接、人工审批和交易频率治理状态机。领域基线见[决策治理设计](../../../architecture/services/decision-governance-service.md)。
+建立组合级TradeProposal版本、风险复核链接、硬风控链接、人工审批、DecisionBudgetReservation和组合调仓频率治理状态机。领域基线见[决策治理设计](../../../architecture/services/decision-governance-service.md)与[ADR-010](../../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 ## 内部阶段
 
@@ -11,4 +11,3 @@
 3. [测试](./90-test-plan.md)与[验收](./99-acceptance.md)。
 
 本阶段用Fake Agent结果和Fake Risk Client，不接模型和Temporal。
-

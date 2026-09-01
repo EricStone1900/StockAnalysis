@@ -18,7 +18,7 @@ Agent只生成结构化判断；Temporal只编排；`decision-governance-service
 - Agent与模型Provider解耦，输出必须通过Zod和证据校验。
 - Workflow代码保持确定性，外部调用全部位于Activity。
 - 风险复核与硬风控是两层不同能力，均不可跳过。
-- HOLD合法；每天最多1～2个交易批次由确定性规则执行。
+- HOLD合法；每个组合每天允许0～2个组合调仓批次，一次批次可包含多个证券Leg并由确定性规则执行。
 - 六个Agent共用一个agent-service工程和镜像，但以六个容器、Durable Consumer和Task Queue独立部署。
 - Agent评估和领域状态变化使用NATS + Outbox/Inbox传播，关键命令仍返回确定性结果。
 
@@ -35,6 +35,6 @@ Agent只生成结构化判断；Temporal只编排；`decision-governance-service
 - 替换Provider不修改Agent业务定义。
 - 所有结论可追溯证据和版本。
 - 风险复核四种分支正确，修订循环有上限。
-- 每日第3个交易批次被硬规则拒绝。
+- 每日第3个组合调仓批次被硬规则拒绝，同批次多Leg和部分成交不重复计数。
 - Worker重启后工作流继续，重复审批不产生重复指令。
 - 任一Agent部署故障不拖垮其他Agent；重复事件不创建重复Proposal。

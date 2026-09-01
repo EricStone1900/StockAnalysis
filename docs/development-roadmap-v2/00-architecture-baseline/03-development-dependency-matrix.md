@@ -31,9 +31,8 @@
 
 1. 阶段02冻结DataVersion、Security和Calendar v1。
 2. 阶段03冻结DailyAnalysisSnapshot、DailyStrategySnapshot v1。
-3. 阶段05冻结Portfolio、Risk、Proposal、Approval、OrderIntent和Fill v1。
+3. 阶段05冻结Portfolio、Risk、组合级Proposal、DecisionBudgetReservation、RebalanceBatch、Approval、OrderIntent和Fill v1。
 4. 阶段06冻结NewsCandidate、AnomalyEvent和RegimeSnapshot v1。
 5. 阶段08冻结AgentRun、ModelRun、Tool和Context Manifest v1。
 
 冻结不表示永不变化；兼容增加走Minor版本，破坏性变化走新Major并保留迁移期。
-

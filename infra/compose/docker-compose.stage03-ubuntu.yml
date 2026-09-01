@@ -1,0 +1,19 @@
+name: stock-analysis-infra
+
+services:
+  postgres:
+    ports: !override ["127.0.0.1:5433:5432"]
+  temporal:
+    ports: !override ["127.0.0.1:7233:7233"]
+  nats:
+    ports: !override ["127.0.0.1:4222:4222", "127.0.0.1:8222:8222"]
+  redis:
+    ports: !override ["127.0.0.1:6379:6379"]
+  minio:
+    ports: !override ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+  otel-collector:
+    ports: !override ["127.0.0.1:4317:4317", "127.0.0.1:4318:4318"]
+  market-data-service:
+    ports: !override ["127.0.0.1:3000:3000"]
+  quant-research-service:
+    ports: !override ["127.0.0.1:3001:3000"]

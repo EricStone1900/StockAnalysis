@@ -28,7 +28,7 @@
 ### MarketMonitorWorkflow
 
     交易日前确保market-monitor-service就绪
-      -> Worker持续接收或每5分钟轮询行情
+      -> Worker按MonitorPolicy持续接收或批量轮询行情
       -> Worker本地聚合并运行异常检测
       -> Temporal只接收中高等级异常事件引用
       -> 调用盯盘 Agent
@@ -58,6 +58,9 @@ Tick和完整分钟序列不能写入Temporal Workflow History；Temporal只编�
       -> REJECT：关闭当前建议版本
       -> INSUFFICIENT_EVIDENCE：等待数据刷新或人工处理
       -> 硬风控PASS后进入人工审批工作流
+      -> 批准后原子预留DecisionBudgetReservation
+      -> execution原子接受RebalanceBatch并创建OrderIntent[]
+      -> 接受成功消费预留；接受前整体失败释放预留
 
 风险复核的内部“独立证据判断、建议对照、反方情景、结果汇总”默认封装在一个risk-review Activity中。Temporal保存输入引用和结构化RiskReviewResult，不把模型的完整辩论文本或隐藏推理写入Workflow History。若未来使用LangGraph.js，只允许作为该Activity内部实现，不能替代Temporal持有业务生命周期。
 
@@ -81,8 +84,8 @@ PASS_WITH_CONDITIONS修订循环必须有`maxRiskReviewRevisions`上限，建议
 - agent activities：运行指定 Agent。
 - risk-review activities：构建证据包、运行单模型或跨模型复核、确定性合并结构化结论。
 - risk activities：硬风控评估。
-- governance activities：创建建议、审批状态变更。
-- execution activities：创建指令、查询订单和对账。
+- governance activities：创建建议、审批状态变更，以及预留、消费或释放组合调仓预算。
+- execution activities：原子创建RebalanceBatch和OrderIntent[]、查询订单和对账。
 
 Workflow 代码必须保持确定性，不在 Workflow 内直接使用当前时间、随机数、数据库客户端、HTTP 客户端或模型 SDK。
 
@@ -92,9 +95,9 @@ Workflow 代码必须保持确定性，不在 Workflow 内直接使用当前时�
 |---|---|
 | 每日量化 | 交易日收盘后，并以数据源就绪为真正触发条件 |
 | 新闻全量 | 每 12 小时，可由重大来源事件追加触发 |
-| 盯盘 | Worker交易时段持续运行或每5分钟轮询；Temporal负责开盘前检查和异常后流程 |
+| 盯盘 | Worker按版本化MonitorPolicy运行；免费首版每10分钟批量采样，P0/P1/P2分别每10/20/30分钟评估；Temporal负责开盘前检查和异常后流程 |
 | 市场状态 | 日频收盘后；盘中15～30分钟或市场级异常触发 |
-| 决策检查 | 每 10 分钟或事件触发 |
+| 决策检查 | MonitorPolicy到期或事件触发；只有中高异常、新证据或人工请求才进入决策门控 |
 | RD-Agent研究 | 每周、每月或人工触发research-automation-service |
 | 模型重训 | 定期或漂移检测触发 |
 
@@ -108,6 +111,7 @@ Workflow 代码必须保持确定性，不在 Workflow 内直接使用当前时�
 - 模型调用仅在没有外部副作用时自动重试。
 - 风险复核重试和Provider切换必须产生新的modelRunId；全部失败时返回阻塞结果，不能默认PASS。
 - 创建建议、审批、订单等操作必须依靠服务端幂等，而不是仅依赖 Temporal。
+- Workflow重试不得生成新的rebalanceBatchId或预算预留；同一decisionId、proposalVersion和批准结果必须复用稳定幂等键。
 - 不可恢复的数据质量错误进入人工处理队列，不进行无限重试。
 
 ## 6. Task Queue
@@ -148,6 +152,7 @@ agent-risk-review队列承载风险复核Agent；portfolio-risk-service的同步
 - 多组合时以 portfolioId 作为工作流隔离键。
 - 自动交易阶段增加订单状态长工作流和对账补偿。
 - 增加策略回放工作流，用历史快照重现当时决策。
+- 阶段10增加日频策略、分钟异常、批次预算、A股执行限制和成本后的联合回放；阶段12使用Paper/Shadow继续验证。
 - 增加风险复核影子模型和模型分歧评估，但影子结果不改变生产状态机。
 - 增加灾难恢复和跨区域 Worker，但避免同一 Schedule 重复触发。
 
@@ -158,3 +163,4 @@ agent-risk-review队列承载风险复核Agent；portfolio-risk-service的同步
 - 每日任务重复触发不会发布两份相同版本快照。
 - 工作流历史可以解释每一步使用的输入版本和结果。
 - PASS_WITH_CONDITIONS、REJECT和INSUFFICIENT_EVIDENCE都有明确状态分支，不会落入默认放行路径。
+- 同一组合级Proposal的多Leg只创建一个RebalanceBatch；第3批、预算竞争和接受失败释放均可确定性重放。

@@ -6,12 +6,30 @@
 
 ## 实施步骤
 
-### 1. 创建OrderIntent
+### 1. 创建RebalanceBatch和OrderIntent
+
+一个组合级Proposal先原子创建一个RebalanceBatch，再按Leg创建多个OrderIntent：
+
+```ts
+interface RebalanceBatch {
+  rebalanceBatchId: string;
+  decisionId: string;
+  proposalVersion: number;
+  riskEvaluationId: string;
+  budgetReservationId: string;
+  targetPortfolioVersion: string;
+  orderIntentIds: string[];
+  idempotencyKey: string;
+}
+```
 
 ```ts
 interface OrderIntent {
   orderIntentId: string;
+  rebalanceBatchId: string;
+  legId: string;
   decisionId: string;
+  proposalVersion: number;
   riskEvaluationId: string;
   accountId: string;
   symbol: string;
@@ -25,7 +43,7 @@ interface OrderIntent {
 }
 ```
 
-创建前再次检查APPROVED、RiskEvaluation有效、持仓版本和市场状态。
+创建前再次检查APPROVED、RiskEvaluation、DISPATCHING预算预留、完整Leg集合、持仓版本和市场状态。任一Leg失败时整个批次拒绝，不留下部分READY Intent。
 
 ### 2. 人工提交
 
@@ -56,10 +74,10 @@ const fillSchema = z.object({
 3. 重复brokerExecutionId只入账一次。
 4. 部分成交后撤销保留已成交数量。
 5. 卖出数量违反T+1时拒绝创建指令。
+6. 同批次多Leg和重报只计一次；执行已接受但响应丢失时按幂等键查询，不创建替代批次。
 
 ## 完成条件
 
 - 全部人工动作有operatorId和审计。
 - OrderIntent状态机不可跳跃。
 - 成交回填不会直接执行跨SchemaSQL。
-

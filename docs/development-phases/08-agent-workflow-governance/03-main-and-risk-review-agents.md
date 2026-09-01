@@ -32,9 +32,22 @@ const tradeProposalSchema = z.object({
   decisionId: z.string(),
   proposalVersion: z.number().int().positive(),
   portfolioId: z.string(),
-  symbol: z.string(),
-  action: z.enum(['BUY', 'SELL', 'HOLD']),
-  targetWeight: z.number().min(0).max(1).optional(),
+  proposalAction: z.enum(['HOLD', 'REBALANCE']),
+  rebalanceReason: z.enum([
+    'DAILY_TARGET',
+    'INTRADAY_RISK_REDUCTION',
+    'EXECUTION_CORRECTION',
+  ]).optional(),
+  targetPortfolioVersion: z.string().optional(),
+  legs: z.array(z.object({
+    legId: z.string(),
+    symbol: z.string(),
+    exchange: z.string(),
+    side: z.enum(['BUY', 'SELL']),
+    targetWeight: z.number().min(0).max(1).optional(),
+    quantity: decimalStringSchema.optional(),
+    evidenceIds: z.array(z.string()).min(1),
+  })),
   confidence: z.number().min(0).max(1),
   reasons: z.array(z.string()).min(1),
   risks: z.array(z.string()),
@@ -47,7 +60,7 @@ const tradeProposalSchema = z.object({
 });
 ```
 
-HOLD也保存，但不进入交易审批和批次计数。
+HOLD也保存且legs必须为空，不进入交易审批和批次计数；REBALANCE至少包含一个Leg并作为整体复核。
 
 ### 3. 不可变风险证据包
 
@@ -81,7 +94,7 @@ Validate evidence packet
 ## 测试案例
 
 1. 缺失evidenceId产生INSUFFICIENT_EVIDENCE。
-2. PASS仍不能直接创建OrderIntent。
+2. PASS仍不能直接创建DecisionBudgetReservation、RebalanceBatch或OrderIntent。
 3. 条件通过生成新proposalVersion。
 4. 两模型PASS/REJECT合并为REJECT。
 5. 旧EvidencePacket Hash不能复核新Proposal。
@@ -90,6 +103,7 @@ Validate evidence packet
 8. TradeProposal引用`CANDIDATE`策略快照时返回INSUFFICIENT_EVIDENCE或REJECT。
 9. 策略集合建议买入但NO_TRADE基线和成本后收益不支持时，不得默认PASS。
 10. StrategyVersion激活状态、成本模型或快照内容在复核期间变化时，旧EvidencePacket失效。
+11. 同一目标组合拆成多个单票Proposal时拒绝，防止规避每日批次和组合风险。
 
 ## 完成条件
 

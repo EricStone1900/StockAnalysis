@@ -1,4 +1,4 @@
-from src.main import live
+from main import live
 
 
 def test_live() -> None:
