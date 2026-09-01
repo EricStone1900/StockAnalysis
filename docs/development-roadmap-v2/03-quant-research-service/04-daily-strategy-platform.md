@@ -28,6 +28,7 @@
 - FastAPI仅暴露`GET /api/v1/strategies/{strategy_id}/{version}`和`GET /api/v1/strategy-snapshots/{snapshot_id}`只读查询；未知资源返回404，任何写请求返回405，OpenAPI不得出现交易或激活写接口。
 - 另提供`GET /api/v1/strategy-runs/{run_id}`查询运行状态、失败原因和快照引用；启动、重试、激活及交易操作均不开放HTTP写接口。
 - `StrategyRunService`记录策略运行状态和失败原因；失败时返回上一份READY快照的`is_stale=true`副本，仓储中的上一份READY快照保持不变，重复运行按`run_id`幂等。
+- `StrategyExecutionService`串联ACTIVE版本、插件Context校验、StrategyResult、DailyStrategySnapshot和Outbox事件；`StrategyOutboxDispatcher`在发布异常时保留pending，成功后才标记，形成可重试Fixture E2E闭环。
 - `build_strategy_snapshot`只接受`ACTIVE`版本，生成稳定内容Hash；`InMemoryStrategySnapshotRepository`提供完整快照原子写入和重复幂等。
 - 第三方插件容器隔离、PostgreSQL Registry、Outbox、真实策略和Ensemble属于后续组件集成，不在本次最小切片中实现。
 

@@ -191,6 +191,29 @@ class InMemoryStrategyOutbox:
         self._events[event_id] = _canonical(event.model_copy(update={"published_at": published_at}))
 
 
+class StrategyEventPublisher(Protocol):
+    def publish(self, subject: str, payload: dict[str, Any]) -> None: ...
+
+
+class StrategyOutboxDispatcher:
+    """一次投递一个事件；异常时保持pending，下一次可安全重试。"""
+
+    def __init__(self, outbox: InMemoryStrategyOutbox, publisher: StrategyEventPublisher) -> None:
+        self._outbox = outbox
+        self._publisher = publisher
+
+    def dispatch_once(self, now: datetime) -> StrategyOutboxEvent | None:
+        if now.tzinfo is None or now.utcoffset() != UTC.utcoffset(now):
+            raise ValueError("dispatch timestamp must use UTC")
+        pending = self._outbox.pending()
+        if not pending:
+            return None
+        event = pending[0]
+        self._publisher.publish(event.subject, event.payload)
+        self._outbox.mark_published(event.event_id, now)
+        return event
+
+
 class InMemoryStrategyPublicationStore:
     """Fixture事务存储：快照和Outbox事件要么同时写入，要么均不改变。"""
 
@@ -205,6 +228,25 @@ class InMemoryStrategyPublicationStore:
             raise ValueError("outbox event content hash does not match snapshot")
         self.snapshots.publish_atomically(snapshot)
         self.outbox.append(event)
+
+
+class StrategyExecutionService:
+    """Fixture端到端协调器：只运行已激活策略并发布研究快照。"""
+
+    def __init__(self, registry: InMemoryStrategyRegistry, publication: InMemoryStrategyPublicationStore) -> None:
+        self._registry = registry
+        self._publication = publication
+
+    def execute(self, context: StrategyContext, plugin: StrategyPlugin, published_at: datetime, valid_until: datetime, cost_model_version: str) -> DailyStrategySnapshot:
+        version = self._registry.get(context.strategy_id, context.strategy_version)
+        if version is None or version.status is not StrategyStatus.ACTIVE:
+            raise ValueError("strategy version is not ACTIVE")
+        plugin.validate_context(context)
+        result = plugin.generate(context)
+        snapshot = build_strategy_snapshot(context, version, result, published_at, valid_until, cost_model_version)
+        event = StrategyOutboxEvent(event_id=f"strategy-snapshot-published-{snapshot.snapshot_id}", subject="stock.quant.daily-strategy.published.v1", payload={"snapshotId": snapshot.snapshot_id, "runId": snapshot.run_id, "contentHash": snapshot.content_hash})
+        self._publication.publish(snapshot, event)
+        return snapshot
 
 
 def evaluate_strategy_gates(strategy_id: str, strategy_version: str, gates: StrategyGateInput, evaluated_at: datetime) -> StrategyGateResult:

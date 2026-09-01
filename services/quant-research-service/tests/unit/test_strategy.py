@@ -17,7 +17,9 @@ from quant_research.strategy import (
     RegimeOverlayStrategy,
     StrategyContext,
     StrategyEvaluation,
+    StrategyExecutionService,
     StrategyGateInput,
+    StrategyOutboxDispatcher,
     StrategyOutboxEvent,
     StrategyPluginManifest,
     StrategyRunService,
@@ -190,3 +192,33 @@ def test_strategy_run_failure_returns_previous_snapshot_as_stale() -> None:
     assert failed.status is StrategyRunStatus.FAILED
     assert stale is not None and stale.is_stale is True
     assert repository.latest_ready() == snapshot
+
+
+class FakePublisher:
+    def __init__(self, fail_once: bool = False) -> None:
+        self.fail_once = fail_once
+        self.items: list[tuple[str, dict[str, object]]] = []
+
+    def publish(self, subject: str, payload: dict[str, object]) -> None:
+        if self.fail_once:
+            self.fail_once = False
+            raise RuntimeError("temporary NATS outage")
+        self.items.append((subject, payload))
+
+
+def test_execution_and_outbox_dispatch_retry_form_complete_fixture_e2e() -> None:
+    registry = InMemoryStrategyRegistry()
+    registry.register(_version())
+    active = registry.activate("no-rebalance", "v1", StrategyEvaluation(strategy_id="no-rebalance", strategy_version="v1", out_of_sample=True, cost_model_version="cost-v1", approval_reference="approval-1"))
+    publication = InMemoryStrategyPublicationStore()
+    context = _context()
+    snapshot = StrategyExecutionService(registry, publication).execute(context, NoRebalanceStrategy(), datetime(2026, 9, 1, 2, tzinfo=UTC), datetime(2026, 9, 2, tzinfo=UTC), "cost-v1")
+    assert snapshot.strategy_version == active.version
+    publisher = FakePublisher(fail_once=True)
+    dispatcher = StrategyOutboxDispatcher(publication.outbox, publisher)
+    with pytest.raises(RuntimeError, match="outage"):
+        dispatcher.dispatch_once(datetime(2026, 9, 1, 3, tzinfo=UTC))
+    assert len(publication.outbox.pending()) == 1
+    dispatcher.dispatch_once(datetime(2026, 9, 1, 4, tzinfo=UTC))
+    assert len(publication.outbox.pending()) == 0
+    assert len(publisher.items) == 1
