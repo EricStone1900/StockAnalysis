@@ -516,6 +516,33 @@ class InMemoryStrategyRegistry:
         return self._versions.get((strategy_id, version))
 
 
+class PostgresStrategyRegistry:
+    """使用元数据仓储保存策略版本；激活前强制执行 Gate 和审批校验。"""
+
+    def __init__(self, repository: PostgresStrategyMetadataRepository) -> None:
+        self._repository = repository
+
+    def register(self, version: StrategyVersion) -> None:
+        self._repository.save_version(version)
+
+    def get(self, strategy_id: str, version: str) -> StrategyVersion | None:
+        return self._repository.get_version(strategy_id, version)
+
+    def activate(self, strategy_id: str, version: str, evaluation: StrategyEvaluation, gates: StrategyGateResult) -> StrategyVersion:
+        current = self.get(strategy_id, version)
+        if current is None:
+            raise ValueError("strategy version not found")
+        if current.status is not StrategyStatus.CANDIDATE:
+            raise ValueError("only CANDIDATE strategy versions can be activated")
+        if not gates.passed or gates.strategy_id != strategy_id or gates.strategy_version != version:
+            raise ValueError("strategy gates failed or do not match version")
+        if not evaluation.out_of_sample or evaluation.approval_reference is None:
+            raise ValueError("ACTIVE strategy requires out-of-sample evaluation and approval")
+        active = current.model_copy(update={"status": StrategyStatus.ACTIVE})
+        self._repository.replace_version(active)
+        return active
+
+
 class DailyStrategySnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -620,6 +647,13 @@ class PostgresStrategyMetadataRepository:
 
     def save_version(self, version: StrategyVersion) -> None:
         self._save("strategy_version", f"{version.strategy_id}:{version.version}", version)
+
+    def replace_version(self, version: StrategyVersion) -> None:
+        import psycopg
+
+        payload = _canonical(version)
+        with psycopg.connect(self._database_url) as connection:
+            connection.execute("UPDATE strategy_metadata_records SET payload=%s::jsonb WHERE record_type='strategy_version' AND record_id=%s", (payload, f"{version.strategy_id}:{version.version}"))
 
     def save_run(self, run: StrategyRun) -> None:
         self._save_table("strategy_runs", run.run_id, run)

@@ -9,15 +9,18 @@ from quant_research.strategy import (
     InMemoryStrategyRegistry,
     NoRebalanceStrategy,
     PostgresStrategyMetadataRepository,
+    PostgresStrategyRegistry,
     RebalancePolicy,
     StrategyContext,
     StrategyEvaluation,
+    StrategyGateInput,
     StrategyOutboxEvent,
     StrategyRun,
     StrategyRunStatus,
     StrategyStatus,
     StrategyVersion,
     build_strategy_snapshot,
+    evaluate_strategy_gates,
 )
 
 pytestmark = pytest.mark.skipif("MARKET_DATA_DATABASE_URL" not in os.environ, reason="requires local PostgreSQL")
@@ -53,3 +56,19 @@ def test_postgres_snapshot_and_outbox_are_atomic_and_idempotent() -> None:
         connection.execute("DELETE FROM strategy_metadata_records WHERE record_id=%s", (snapshot.snapshot_id,))
         connection.execute("DELETE FROM strategy_outbox_events WHERE event_id=%s", (event.event_id,))
         connection.execute("DELETE FROM strategy_runs WHERE run_id=%s", (run.run_id,))
+
+
+def test_postgres_registry_registers_and_activates_only_after_gates() -> None:
+    import psycopg
+
+    repository = PostgresStrategyMetadataRepository(os.environ["MARKET_DATA_DATABASE_URL"])
+    registry = PostgresStrategyRegistry(repository)
+    version = StrategyVersion(strategy_id="integration-registry", version="v1", code_hash="c" * 64, parameter_set_id="default", status=StrategyStatus.CANDIDATE, rebalance_policy=RebalancePolicy(minimum_holding_days=1, cooldown_trading_days=1, maximum_expected_turnover=Decimal("0.2")))
+    registry.register(version)
+    evaluation = StrategyEvaluation(strategy_id=version.strategy_id, strategy_version=version.version, out_of_sample=True, cost_model_version="cost-v1", approval_reference="approval")
+    gates = evaluate_strategy_gates(version.strategy_id, version.version, StrategyGateInput(pit_passed=True, out_of_sample=True, cost_model_version="cost-v1", expected_turnover=Decimal("0.1"), maximum_turnover=Decimal("0.2"), capacity_passed=True, license_passed=True, security_passed=True), datetime(2026, 9, 1, tzinfo=UTC))
+    active = registry.activate(version.strategy_id, version.version, evaluation, gates)
+    assert active.status is StrategyStatus.ACTIVE
+    assert registry.get(version.strategy_id, version.version) == active
+    with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"]) as connection:
+        connection.execute("DELETE FROM strategy_metadata_records WHERE record_type='strategy_version' AND record_id=%s", (f"{version.strategy_id}:{version.version}",))

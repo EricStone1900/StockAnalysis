@@ -29,6 +29,8 @@
 - 另提供`GET /api/v1/strategy-runs/{run_id}`查询运行状态、失败原因和快照引用；启动、重试、激活及交易操作均不开放HTTP写接口。
 - 策略版本和策略快照查询在设置`QUANT_RESEARCH_DATABASE_URL`时自动读取PostgreSQL，否则使用内存Fixture；两种模式均保持只读和404语义。
 - `004_strategy_runs.sql`和`PostgresStrategyMetadataRepository.save_run/get_run`持久化StrategyRun状态、失败原因和快照引用；策略运行查询API在数据库模式下可跨进程恢复。
+- `PostgresStrategyRegistry`已将策略注册、读取和激活绑定到PostgreSQL；激活前必须通过完整 Gate、样本外评估和人工审批，激活结果以幂等版本记录保存。
+- 策略版本注册记录保持内容不可变；合法生命周期变更通过受控`replace_version`更新状态，避免使用冲突写入绕过版本审计。
 - `StrategyRunService`记录策略运行状态和失败原因；失败时返回上一份READY快照的`is_stale=true`副本，仓储中的上一份READY快照保持不变，重复运行按`run_id`幂等。
 - `StrategyExecutionService`串联ACTIVE版本、插件Context校验、StrategyResult、DailyStrategySnapshot和Outbox事件；`StrategyOutboxDispatcher`在发布异常时保留pending，成功后才标记，形成可重试Fixture E2E闭环。
 - `build_strategy_snapshot`只接受`ACTIVE`版本，生成稳定内容Hash；`InMemoryStrategySnapshotRepository`提供完整快照原子写入和重复幂等。
