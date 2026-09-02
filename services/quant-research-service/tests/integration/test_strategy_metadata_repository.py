@@ -28,12 +28,18 @@ from quant_research.strategy import (
 pytestmark = pytest.mark.skipif("MARKET_DATA_DATABASE_URL" not in os.environ, reason="requires local PostgreSQL")
 
 
+def _migrate_strategy_schema(repository: PostgresStrategyMetadataRepository) -> None:
+    migration_dir = Path(__file__).parents[2] / "migrations"
+    repository.migrate(str(migration_dir / "002_strategy_metadata.sql"))
+    repository.migrate(str(migration_dir / "004_strategy_runs.sql"))
+
+
 def test_postgres_snapshot_and_outbox_are_atomic_and_idempotent() -> None:
     import psycopg
 
     url = os.environ["MARKET_DATA_DATABASE_URL"]
     repository = PostgresStrategyMetadataRepository(url)
-    repository.migrate(str(Path(__file__).parents[2] / "migrations/002_strategy_metadata.sql"))
+    _migrate_strategy_schema(repository)
     registry = InMemoryStrategyRegistry()
     version = StrategyVersion(strategy_id="no-rebalance", version="integration-v1", code_hash="a" * 64, parameter_set_id="default", status=StrategyStatus.CANDIDATE, rebalance_policy=RebalancePolicy(minimum_holding_days=1, cooldown_trading_days=1, maximum_expected_turnover=Decimal("0.2")))
     registry.register(version)
@@ -81,6 +87,7 @@ def test_postgres_strategy_run_service_is_recoverable() -> None:
     import psycopg
 
     repository = PostgresStrategyMetadataRepository(os.environ["MARKET_DATA_DATABASE_URL"])
+    _migrate_strategy_schema(repository)
     service = PostgresStrategyRunService(repository)
     started = datetime(2026, 9, 1, tzinfo=UTC)
     run = service.start("integration-run-service", "strategy", "v1", date(2026, 9, 1), started)
