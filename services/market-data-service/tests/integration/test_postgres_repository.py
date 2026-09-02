@@ -32,7 +32,6 @@ def test_security_repository_enforces_versioned_updates() -> None:
     repository.migrate(migration)
     security_id = SecurityId(exchange=Exchange.SSE, symbol="600777")
     with psycopg.connect(os.environ["MARKET_DATA_DATABASE_URL"], autocommit=True) as connection:
-        connection.execute("DELETE FROM close_gap_reconciliations WHERE security_id = %s", ("SSE:600777",))
         connection.execute("DELETE FROM trading_status_facts WHERE security_id = %s", ("SSE:600777",))
         connection.execute("DELETE FROM securities WHERE security_id = %s", ("SSE:600777",))
     repository.save(Security(security_id=security_id, name="浦发银行"))
