@@ -54,29 +54,32 @@ export interface OpeningSnapshotCommand {
 }
 
 export class PortfolioLedger {
-  private version: number;
+  private readonly versions = new Map<string, number>();
   private readonly snapshots = new Map<string, PortfolioSnapshot>();
   private readonly idempotency = new Map<string, PortfolioSnapshot>();
 
   constructor(initialVersion = 0) {
     if (!Number.isInteger(initialVersion) || initialVersion < 0) throw new Error('invalid initial ledger version');
-    this.version = initialVersion;
+    this.defaultVersion = initialVersion;
   }
+  private readonly defaultVersion: number;
 
-  restoreVersion(version: number): void {
-    if (!Number.isInteger(version) || version < this.version) throw new Error('cannot restore an older ledger version');
-    this.version = version;
+  restoreVersion(portfolioId: string, version: number): void {
+    const current = this.versions.get(portfolioId) ?? this.defaultVersion;
+    if (!Number.isInteger(version) || version < current) throw new Error('cannot restore an older ledger version');
+    this.versions.set(portfolioId, version);
   }
 
   importOpening(command: OpeningSnapshotCommand): PortfolioSnapshot {
     const repeated = this.idempotency.get(command.idempotencyKey);
     if (repeated) return repeated;
-    if (command.expectedVersion !== this.version) throw new Error('ledger version conflict');
+    const currentVersion = this.versions.get(command.portfolioId) ?? this.defaultVersion;
+    if (command.expectedVersion !== currentVersion) throw new Error('ledger version conflict');
     validateCommand(command);
     const positions = [...command.positions]
       .sort((left, right) => left.securityId.localeCompare(right.securityId))
       .map((position) => ({ securityId: position.securityId, quantity: position.quantity, availableQuantity: position.quantity }));
-    const nextVersion = this.version + 1;
+    const nextVersion = currentVersion + 1;
     const snapshotWithoutHash = {
       snapshotId: `portfolio-snapshot-${command.portfolioId}-${nextVersion}`,
       portfolioId: command.portfolioId,
@@ -91,14 +94,14 @@ export class PortfolioLedger {
       ...snapshotWithoutHash,
       contentHash: sha256(snapshotWithoutHash),
     };
-    this.version = nextVersion;
+    this.versions.set(command.portfolioId, nextVersion);
     this.snapshots.set(snapshot.snapshotId, snapshot);
     this.idempotency.set(command.idempotencyKey, snapshot);
     return snapshot;
   }
 
   latest(portfolioId: string): PortfolioSnapshot | undefined {
-    return [...this.snapshots.values()].filter((snapshot) => snapshot.portfolioId === portfolioId).at(-1);
+    return [...this.snapshots.values()].filter((snapshot) => snapshot.portfolioId === portfolioId).sort((left, right) => right.ledgerVersion - left.ledgerVersion)[0];
   }
 }
 

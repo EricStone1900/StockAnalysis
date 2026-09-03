@@ -26,4 +26,10 @@ describe('portfolio ledger opening snapshot', () => {
     expect(() => ledger.importOpening(command({ positions: [{ securityId: 'SSE:600000', quantity: '-1' }] }))).toThrow('positive');
     expect(() => ledger.importOpening(command({ cash: '1.123456789' }))).toThrow('Decimal');
   });
+
+  it('keeps ledger versions independent per portfolio', () => {
+    const ledger = new PortfolioLedger();
+    expect(ledger.importOpening(command()).ledgerVersion).toBe(1);
+    expect(ledger.importOpening(command({ portfolioId: 'portfolio-2', idempotencyKey: 'opening-portfolio-2' })).ledgerVersion).toBe(1);
+  });
 });
