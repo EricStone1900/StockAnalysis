@@ -41,4 +41,5 @@ interface LedgerEntry {
 - `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service test`
 - 单元测试覆盖重复导入、版本冲突、Decimal精度、参数化SQL以及最新快照查询。
 - 已通过真实PostgreSQL集成测试：迁移可重复执行、快照可读回、幂等记录可查询，后续写入失败会整体回滚；未配置数据库时集成测试明确跳过。
+- API层测试覆盖成功响应、`409 Conflict`版本冲突、`400 Bad Request`输入错误和`404 Not Found`缺失快照。
 - 容器启动时以`PORTFOLIO_DATABASE_URL`选择数据库模式；Compose服务映射到宿主机`3002`端口。

@@ -1,0 +1,21 @@
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
+import { PortfolioController } from '../../src/bootstrap/main.js';
+
+const snapshot = { snapshotId: 's-1' } as never;
+describe('PortfolioController API mapping', () => {
+  it('returns a snapshot and maps missing data to 404', async () => {
+    const service = { importOpening: vi.fn().mockResolvedValue(snapshot), latest: vi.fn().mockResolvedValueOnce(snapshot).mockResolvedValueOnce(undefined) };
+    const controller = new PortfolioController(service);
+    await expect(controller.importOpening('p-1', {} as never)).resolves.toEqual(snapshot);
+    await expect(controller.latest('p-1')).resolves.toEqual(snapshot);
+    await expect(controller.latest('p-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('maps version conflicts to 409 and validation errors to 400', async () => {
+    const service = { importOpening: vi.fn().mockRejectedValueOnce(new Error('ledger version conflict')).mockRejectedValueOnce(new Error('invalid event time')), latest: vi.fn() };
+    const controller = new PortfolioController(service);
+    await expect(controller.importOpening('p-1', {} as never)).rejects.toBeInstanceOf(ConflictException);
+    await expect(controller.importOpening('p-1', {} as never)).rejects.toBeInstanceOf(BadRequestException);
+  });
+});

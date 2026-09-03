@@ -18,8 +18,8 @@ class HealthController {
   @Get('/version') version() { return { service: serviceName, version: '0.1.0' }; }
 }
 @Controller('/api/v1/portfolios')
-class PortfolioController {
-  private readonly service = createPortfolioService();
+export class PortfolioController {
+  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> = createPortfolioService()) {}
 
   @Post(':portfolioId/manual-snapshots')
   async importOpening(@Param('portfolioId') portfolioId: string, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
@@ -62,4 +62,4 @@ async function migratePortfolioDatabase(): Promise<void> {
     await pool.end();
   }
 }
-void bootstrap();
+if (process.env.NODE_ENV !== 'test') void bootstrap();
