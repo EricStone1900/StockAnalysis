@@ -3,6 +3,7 @@ interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
   findEntry?(entryId: string): Promise<LedgerEntry | undefined>;
+  findReversalByIdempotency?(portfolioId: string, key: string): Promise<LedgerEntry | undefined>;
   appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
 }
@@ -37,12 +38,22 @@ export class PortfolioService {
   }
 
   async reverse(command: ReversalCommand): Promise<LedgerEntry> {
+    const persisted = await this.repository?.findReversalByIdempotency?.(command.portfolioId, command.idempotencyKey);
+    if (persisted) return persisted;
     if (this.repository?.findEntry) {
       const original = await this.repository.findEntry(command.originalEntryId);
       if (original) this.ledger.restoreEntry(original);
     }
     const entry = this.ledger.reverse(command);
-    if (this.repository?.appendReversal) await this.repository.appendReversal(command, entry);
+    if (this.repository?.appendReversal) {
+      try { await this.repository.appendReversal(command, entry); } catch (error) {
+        if (isUniqueViolation(error)) {
+          const repeated = await this.repository.findReversalByIdempotency?.(command.portfolioId, command.idempotencyKey);
+          if (repeated) return repeated;
+        }
+        throw error;
+      }
+    }
     return entry;
   }
 }

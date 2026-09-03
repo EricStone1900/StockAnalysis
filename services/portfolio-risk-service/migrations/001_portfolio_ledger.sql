@@ -9,10 +9,13 @@ CREATE TABLE IF NOT EXISTS portfolio_ledger_entries (
   actor_id TEXT NOT NULL,
   reason TEXT NOT NULL,
   reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id),
+  idempotency_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id);
+ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_one_reversal_idx ON portfolio_ledger_entries (reversal_of_entry_id) WHERE reversal_of_entry_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_idempotency_idx ON portfolio_ledger_entries (portfolio_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS portfolio_snapshots (
   snapshot_id TEXT PRIMARY KEY,

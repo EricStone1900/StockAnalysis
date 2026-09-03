@@ -34,6 +34,11 @@ export class PostgresPortfolioRepository {
     const row = result.rows[0];
     return row ? { entryId: row.entry_id, portfolioId: row.portfolio_id, type: row.entry_type, amount: row.amount, occurredAt: row.occurred_at, availableAt: row.available_at, sourceRef: row.source_ref, actorId: row.actor_id, reason: row.reason } : undefined;
   }
+  async findReversalByIdempotency(portfolioId: string, key: string): Promise<LedgerEntry | undefined> {
+    const result = await this.client.query<Record<string, unknown> & { entry_id: string; portfolio_id: string; entry_type: LedgerEntry['type']; amount: string; occurred_at: string; available_at: string; source_ref: string; actor_id: string; reason: string }>(`SELECT entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason FROM portfolio_ledger_entries WHERE portfolio_id = $1 AND idempotency_key = $2`, [portfolioId, key]);
+    const row = result.rows[0];
+    return row ? { entryId: row.entry_id, portfolioId: row.portfolio_id, type: row.entry_type, amount: row.amount, occurredAt: row.occurred_at, availableAt: row.available_at, sourceRef: row.source_ref, actorId: row.actor_id, reason: row.reason } : undefined;
+  }
 
   async appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void> {
     const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
@@ -68,9 +73,9 @@ export class PostgresPortfolioRepository {
   async appendReversal(command: ReversalCommand, entry: LedgerEntry): Promise<void> {
     await this.client.query(
       `INSERT INTO portfolio_ledger_entries
-        (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason, reversal_of_entry_id)
-       VALUES ($1, $2, 'REVERSAL', $3, $4, $5, $6, $7, $8, $9)`,
-      [entry.entryId, entry.portfolioId, entry.amount, entry.occurredAt, entry.availableAt, entry.sourceRef, entry.actorId, entry.reason, command.originalEntryId],
+        (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason, reversal_of_entry_id, idempotency_key)
+       VALUES ($1, $2, 'REVERSAL', $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [entry.entryId, entry.portfolioId, entry.amount, entry.occurredAt, entry.availableAt, entry.sourceRef, entry.actorId, entry.reason, command.originalEntryId, command.idempotencyKey],
     );
   }
 }
