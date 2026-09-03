@@ -132,7 +132,14 @@ uv run pytest tests/unit/test_provider.py tests/unit/test_reproducibility.py tes
 
 检查 `FixedScriptSandbox` 构造的命令必须包含：`--network none`、`--read-only`、非 root 用户、`--cap-drop ALL`、`no-new-privileges`、CPU/内存/PID 上限、受限 `/tmp` 和只读 Artifact 挂载。
 
-当前代码只提供安全命令构造和可注入执行端口，仓库尚未提供正式 `research-sandbox:fixed-v1` 镜像及 Ubuntu 自动化隔离脚本。因此本节不能直接签署“真实容器隔离通过”。正式验收前必须补充并验证：无外网、无 Docker Socket、无 Secret、无宿主写入、超时、OOM、Fork Bomb 和日志上限；否则阶段04只能保持 `CANDIDATE`。
+执行阶段04提供的真实镜像和隔离脚本：
+
+```bash
+cd "$STOCK_ROOT"
+./scripts/stage04-sandbox-isolation.sh
+```
+
+脚本会原生构建 `research-sandbox:fixed-v1`，以固定输入执行白名单脚本，并验证无网络、只读根目录和非 root 用户。Docker Socket、生产 Secret、宿主写目录、超时、OOM、Fork Bomb 和日志上限仍应由运维人员按服务器运行时策略抽样确认；任一项失败都不能签署 PASS。
 
 ## 10. 研究服务不影响量化生产
 
