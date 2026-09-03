@@ -10,10 +10,15 @@ import { PortfolioService } from '../application/portfolio-service.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
 const serviceName = 'portfolio-risk-service';
+const databasePool = process.env.PORTFOLIO_DATABASE_URL ? new Pool({ connectionString: process.env.PORTFOLIO_DATABASE_URL, max: 5 }) : undefined;
 @Controller()
-class HealthController {
+export class HealthController {
   @Get('/live') live() { return { status: 'UP' }; }
-  @Get('/ready') ready() { return { status: 'UP', dependencies: {} }; }
+  @Get('/ready') async ready() {
+    if (!databasePool) return { status: 'UP', dependencies: { postgres: 'NOT_CONFIGURED' } };
+    try { await databasePool.query('SELECT 1'); return { status: 'UP', dependencies: { postgres: 'UP' } }; }
+    catch { return { status: 'DOWN', dependencies: { postgres: 'DOWN' } }; }
+  }
   @Get('/metrics') metrics() { return ''; }
   @Get('/version') version() { return { service: serviceName, version: '0.1.0' }; }
 }
@@ -60,8 +65,7 @@ export class PortfolioController {
 function createPortfolioService(): PortfolioService {
   const databaseUrl = process.env.PORTFOLIO_DATABASE_URL;
   if (!databaseUrl) return new PortfolioService(new PortfolioLedger());
-  const pool = new Pool({ connectionString: databaseUrl, max: 5 });
-  return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
+  return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(databasePool ?? new Pool({ connectionString: databaseUrl, max: 5 })));
 }
 export class AppModule {}
 Module({ controllers: [HealthController, PortfolioController] })(AppModule);
