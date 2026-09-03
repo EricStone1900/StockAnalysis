@@ -1,0 +1,46 @@
+import type { OpeningSnapshotCommand, PortfolioSnapshot } from '../domain/portfolio.js';
+
+export interface SqlClient {
+  query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
+}
+
+/** PostgreSQL adapter. The concrete pg Pool is injected by the composition root. */
+export class PostgresPortfolioRepository {
+  constructor(private readonly client: SqlClient) {}
+
+  async findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined> {
+    const result = await this.client.query<{ payload: PortfolioSnapshot }>(
+      `SELECT payload FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1 AND idempotency_key = $2`,
+      [portfolioId, idempotencyKey],
+    );
+    return result.rows[0]?.payload;
+  }
+
+  async latest(portfolioId: string): Promise<PortfolioSnapshot | undefined> {
+    const result = await this.client.query<{ payload: PortfolioSnapshot }>(
+      `SELECT payload FROM portfolio_snapshots WHERE portfolio_id = $1 ORDER BY ledger_version DESC LIMIT 1`,
+      [portfolioId],
+    );
+    return result.rows[0]?.payload;
+  }
+
+  async appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void> {
+    await this.client.query(
+      `INSERT INTO portfolio_ledger_entries
+        (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason)
+       VALUES ($1, $2, 'OPENING', $3, $4, $5, $6, $7, $8)`,
+      [`ledger-entry-${snapshot.snapshotId}`, command.portfolioId, command.cash, command.occurredAt, command.availableAt, command.sourceRef, command.actorId, command.reason],
+    );
+    await this.client.query(
+      `INSERT INTO portfolio_snapshots
+        (snapshot_id, portfolio_id, account_id, as_of, cash, positions, ledger_version, source_ref, content_hash, payload)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10::jsonb)`,
+      [snapshot.snapshotId, snapshot.portfolioId, snapshot.accountId, snapshot.asOf, snapshot.cash, JSON.stringify(snapshot.positions), snapshot.ledgerVersion, snapshot.sourceRef, snapshot.contentHash, JSON.stringify(snapshot)],
+    );
+    await this.client.query(
+      `INSERT INTO portfolio_snapshot_idempotency (portfolio_id, idempotency_key, snapshot_id, payload)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [command.portfolioId, command.idempotencyKey, snapshot.snapshotId, JSON.stringify(snapshot)],
+    );
+  }
+}

@@ -6,12 +6,14 @@
 必填审计字段，使用`expectedVersion`防止并发覆盖，并用`Idempotency-Key`避免重复入账。持仓按证券代码稳定排序，生成
 不可变`PortfolioSnapshot`和规范内容Hash；原始账本事实不提供原地修改接口。
 
-NestJS已提供`POST /api/v1/portfolios/{portfolioId}/manual-snapshots`和最新快照查询入口。当前仓储为内存实现，账本
-PostgreSQL迁移、冲正流水、估值与RiskPolicy属于后续切片；本步骤不接收TradeProposal、不创建Approval或Order。
+NestJS已提供`POST /api/v1/portfolios/{portfolioId}/manual-snapshots`和最新快照查询入口。已补充
+`migrations/001_portfolio_ledger.sql`以及参数化的`PostgresPortfolioRepository`：账本、快照和幂等记录分别保存，快照
+payload与Hash一并落库，便于审计和重放。当前HTTP组合根仍使用内存账本，数据库连接注入和事务化切换安排在下一步，
+避免在未配置连接串时误写数据库。本步骤不接收TradeProposal、不创建Approval或Order。
 
 ## 实施步骤
 
-1. 从Node模板创建独立服务、数据库和迁移。
+1. 从Node模板创建独立服务、数据库迁移和持久化端口。
 2. 建立Portfolio、Account、CashBalance、Position和LedgerEntry模型。
 3. 最小Use Case为“人工导入期初持仓并发布PortfolioSnapshot”。
 4. 写命令使用Idempotency-Key和expectedVersion；LedgerEntry不可原地修改，只能冲正。
@@ -30,9 +32,10 @@ interface LedgerEntry {
 }
 ```
 
-## 测试
+## 本步验证
 
-- 重复导入不重复入账。
-- 非法负数量、未知证券、Decimal精度和并发版本冲突。
-- 冲正后原Entry仍保留。
-- 快照总额和明细一致。
+- `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service lint`
+- `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service typecheck`
+- `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service test`
+- 单元测试覆盖重复导入、版本冲突、Decimal精度、参数化SQL以及最新快照查询。
+- 数据库迁移验证、真实PostgreSQL集成测试和事务化组合根属于下一步；未配置数据库时不得以假成功替代。
