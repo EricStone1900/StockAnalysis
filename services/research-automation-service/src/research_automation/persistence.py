@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .application import ResearchOutboxEvent
 from .domain import (
     ExperimentInput,
     ExperimentRun,
@@ -97,24 +98,45 @@ class PostgresExperimentRepository:
                     (experiment.experiment_id, experiment.input_hash, payload, experiment.created_at),
                 )
 
-    def save_with_outbox(self, experiment: ResearchExperiment, event_id: str, subject: str, event_payload: dict[str, Any]) -> None:
+    def save_with_outbox(self, experiment: ResearchExperiment, event: ResearchOutboxEvent) -> None:
         import psycopg
 
         payload = _canonical(_to_payload(experiment))
-        event = _canonical(event_payload)
+        event_payload = _canonical(event.payload)
         with psycopg.connect(self._database_url) as connection:
             connection.execute(
                 "INSERT INTO research_experiments(experiment_id,input_hash,payload,created_at) VALUES (%s,%s,%s::jsonb,%s) ON CONFLICT (experiment_id) DO UPDATE SET input_hash=EXCLUDED.input_hash,payload=EXCLUDED.payload",
                 (experiment.experiment_id, experiment.input_hash, payload, experiment.created_at),
             )
-            row = connection.execute("SELECT subject,payload::text FROM research_experiment_outbox WHERE event_id=%s", (event_id,)).fetchone()
-            if row is not None and (str(row[0]) != subject or _canonical(json.loads(str(row[1]))) != event):
+            row = connection.execute("SELECT subject,payload::text FROM research_experiment_outbox WHERE event_id=%s", (event.event_id,)).fetchone()
+            if row is not None and (str(row[0]) != event.subject or _canonical(json.loads(str(row[1]))) != event_payload):
                 raise ValueError("outbox event id already contains different content")
             if row is None:
                 connection.execute(
                     "INSERT INTO research_experiment_outbox(event_id,experiment_id,subject,payload) VALUES (%s,%s,%s,%s::jsonb)",
-                    (event_id, experiment.experiment_id, subject, event),
+                    (event.event_id, experiment.experiment_id, event.subject, event_payload),
                 )
+
+    def pending_outbox(self, limit: int = 100) -> tuple[ResearchOutboxEvent, ...]:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            rows = connection.execute(
+                "SELECT event_id,experiment_id,subject,payload::text FROM research_experiment_outbox WHERE published_at IS NULL ORDER BY created_at,event_id LIMIT %s",
+                (limit,),
+            ).fetchall()
+        return tuple(ResearchOutboxEvent(str(row[0]), str(row[1]), str(row[2]), json.loads(str(row[3]))) for row in rows)
+
+    def mark_outbox_published(self, event_id: str, published_at: datetime) -> None:
+        import psycopg
+
+        with psycopg.connect(self._database_url) as connection:
+            connection.execute(
+                "UPDATE research_experiment_outbox SET published_at=%s WHERE event_id=%s AND published_at IS NULL",
+                (published_at, event_id),
+            )
 
 
 def _to_payload(experiment: ResearchExperiment) -> dict[str, Any]:

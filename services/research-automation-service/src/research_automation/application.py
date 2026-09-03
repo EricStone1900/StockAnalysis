@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from .domain import ExperimentInput, ResearchExperiment, utc_now
@@ -17,17 +17,28 @@ class SubmittedExperiment:
     created: bool
 
 
+@dataclass(frozen=True)
+class ResearchOutboxEvent:
+    event_id: str
+    experiment_id: str
+    subject: str
+    payload: dict[str, Any]
+
+
 class ExperimentRepository(Protocol):
     def lookup_idempotency(self, key: str) -> tuple[str, str] | None: ...
     def save_submission(self, experiment: ResearchExperiment, idempotency_key: str) -> None: ...
     def save(self, experiment: ResearchExperiment) -> None: ...
     def get(self, experiment_id: str) -> ResearchExperiment | None: ...
+    def save_with_outbox(self, experiment: ResearchExperiment, event: ResearchOutboxEvent) -> None: ...
+    def pending_outbox(self, limit: int = 100) -> tuple[ResearchOutboxEvent, ...]: ...
 
 
 class InMemoryExperimentRepository:
     def __init__(self) -> None:
         self.experiments: dict[str, ResearchExperiment] = {}
         self.idempotency: dict[str, tuple[str, str]] = {}
+        self.outbox: dict[str, ResearchOutboxEvent] = {}
 
     def lookup_idempotency(self, key: str) -> tuple[str, str] | None:
         return self.idempotency.get(key)
@@ -41,6 +52,18 @@ class InMemoryExperimentRepository:
 
     def get(self, experiment_id: str) -> ResearchExperiment | None:
         return self.experiments.get(experiment_id)
+
+    def save_with_outbox(self, experiment: ResearchExperiment, event: ResearchOutboxEvent) -> None:
+        self.save(experiment)
+        existing = self.outbox.get(event.event_id)
+        if existing is not None and existing != event:
+            raise ValueError("outbox event id already contains different content")
+        self.outbox[event.event_id] = event
+
+    def pending_outbox(self, limit: int = 100) -> tuple[ResearchOutboxEvent, ...]:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        return tuple(self.outbox.values())[:limit]
 
 
 class ExperimentService:
@@ -90,8 +113,17 @@ class ExperimentService:
             updated = started.reject(execution.rejected_reason, execution.exit_code, completed_at)
         else:
             updated = started.evaluate(execution.metrics, execution.exit_code or 0, completed_at)
-        self._repository.save(updated)
+        event = ResearchOutboxEvent(
+            event_id=f"research-experiment-completed-{updated.experiment_id}-{updated.input_hash[:12]}",
+            experiment_id=updated.experiment_id,
+            subject="stock.research.experiment.completed.v1",
+            payload={"experimentId": updated.experiment_id, "inputHash": updated.input_hash, "status": updated.status.value},
+        )
+        self._repository.save_with_outbox(updated, event)
         return updated
+
+    def pending_outbox(self, limit: int = 100) -> tuple[ResearchOutboxEvent, ...]:
+        return self._repository.pending_outbox(limit)
 
     def _require(self, experiment_id: str) -> ResearchExperiment:
         experiment = self.get(experiment_id)

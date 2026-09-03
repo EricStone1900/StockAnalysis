@@ -58,3 +58,4 @@ def test_failed_sandbox_rejects_only_its_own_experiment() -> None:
     other = service.get("experiment-other")
     assert other is not None
     assert other.status is ExperimentStatus.QUEUED
+    assert len(service.pending_outbox()) == 1
