@@ -10,10 +10,12 @@ CREATE TABLE IF NOT EXISTS portfolio_ledger_entries (
   reason TEXT NOT NULL,
   reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id),
   idempotency_key TEXT,
+  correlation_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id);
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS correlation_id TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_one_reversal_idx ON portfolio_ledger_entries (reversal_of_entry_id) WHERE reversal_of_entry_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_idempotency_idx ON portfolio_ledger_entries (portfolio_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 

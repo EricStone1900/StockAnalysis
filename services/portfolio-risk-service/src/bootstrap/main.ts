@@ -27,7 +27,7 @@ export class PortfolioController {
       if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
       if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
       if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
-      return await this.service.importOpening({ ...body, portfolioId });
+      return await this.service.importOpening({ ...body, portfolioId, correlationId });
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
@@ -49,7 +49,7 @@ export class PortfolioController {
       if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
       if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
       if (!this.service.reverse) throw new BadRequestException('reversal is not configured');
-      return await this.service.reverse({ ...body, portfolioId, originalEntryId: entryId });
+      return await this.service.reverse({ ...body, portfolioId, originalEntryId: entryId, correlationId });
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);

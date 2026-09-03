@@ -14,6 +14,7 @@ export interface LedgerEntry {
   readonly sourceRef: string;
   readonly actorId: string;
   readonly reason: string;
+  readonly correlationId?: string;
 }
 
 export interface Position {
@@ -51,6 +52,7 @@ export interface OpeningSnapshotCommand {
   readonly reason: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly correlationId?: string;
 }
 export interface ReversalCommand {
   readonly portfolioId: string;
@@ -62,6 +64,7 @@ export interface ReversalCommand {
   readonly reason: string;
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
+  readonly correlationId?: string;
 }
 
 export class PortfolioLedger {
@@ -115,7 +118,7 @@ export class PortfolioLedger {
       contentHash: sha256(snapshotWithoutHash),
     };
     this.versions.set(command.portfolioId, nextVersion);
-    this.entries.set(`ledger-entry-${snapshot.snapshotId}`, { entryId: `ledger-entry-${snapshot.snapshotId}`, portfolioId: command.portfolioId, type: 'OPENING', amount: command.cash, occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason });
+    this.entries.set(`ledger-entry-${snapshot.snapshotId}`, { entryId: `ledger-entry-${snapshot.snapshotId}`, portfolioId: command.portfolioId, type: 'OPENING', amount: command.cash, occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason, correlationId: command.correlationId });
     this.snapshots.set(snapshot.snapshotId, snapshot);
     this.idempotency.set(command.idempotencyKey, snapshot);
     return snapshot;
@@ -134,7 +137,7 @@ export class PortfolioLedger {
     const currentVersion = this.versions.get(command.portfolioId) ?? this.defaultVersion;
     if (command.expectedVersion !== currentVersion) throw new Error('ledger version conflict');
     if (!command.sourceRef || !command.actorId || !command.reason || !command.idempotencyKey) throw new Error('required reversal field is missing');
-    const entry: LedgerEntry = { entryId: `reversal-${command.originalEntryId}-${currentVersion + 1}`, portfolioId: command.portfolioId, type: 'REVERSAL', amount: negateDecimal(original.amount), occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason };
+    const entry: LedgerEntry = { entryId: `reversal-${command.originalEntryId}-${currentVersion + 1}`, portfolioId: command.portfolioId, type: 'REVERSAL', amount: negateDecimal(original.amount), occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason, correlationId: command.correlationId };
     this.reversals.add(command.originalEntryId);
     this.entries.set(entry.entryId, entry);
     this.reversalIdempotency.set(`${command.portfolioId}:${command.idempotencyKey}`, entry);
