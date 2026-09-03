@@ -2,7 +2,7 @@
 name = "research-automation-service"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115", "psycopg[binary]>=3.2,<4", "uvicorn[standard]>=0.34", "pydantic>=2.10"]
+dependencies = ["boto3>=1.37,<2", "fastapi>=0.115", "psycopg[binary]>=3.2,<4", "uvicorn[standard]>=0.34", "pydantic>=2.10"]
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"

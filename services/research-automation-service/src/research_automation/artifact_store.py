@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Protocol
+from typing import Any, Protocol, cast
 
 from .artifacts import CandidateArtifact
 
@@ -34,6 +34,43 @@ class InMemoryArtifactStore:
         content = self._objects.get(uri)
         if content is None:
             raise FileNotFoundError(uri)
+        if sha256(content).hexdigest() != expected_hash:
+            raise ValueError("artifact content hash mismatch")
+        return content
+
+
+class S3ArtifactStore:
+    """MinIO/S3不可变对象适配器；密钥由调用方从Secret文件读取。"""
+
+    def __init__(self, endpoint_url: str, bucket: str, access_key: str, secret_key: str, client: Any | None = None) -> None:
+        if not bucket or not endpoint_url.startswith(("http://", "https://")):
+            raise ValueError("S3 endpoint and bucket are required")
+        if client is None:
+            import boto3  # type: ignore[import-untyped]
+
+            client = boto3.client("s3", endpoint_url=endpoint_url, aws_access_key_id=access_key, aws_secret_access_key=secret_key)
+        self._client: Any = client
+        self._bucket = bucket
+
+    def put_immutable(self, uri: str, content: bytes, expected_hash: str) -> None:
+        key = _object_key(uri)
+        actual = sha256(content).hexdigest()
+        if actual != expected_hash:
+            raise ValueError("artifact content hash mismatch")
+        try:
+            head = self._client.head_object(Bucket=self._bucket, Key=key)
+        except Exception as error:
+            if _error_code(error) != "404":
+                raise
+            self._client.put_object(Bucket=self._bucket, Key=key, Body=content, Metadata={"sha256": expected_hash})
+            return
+        if str(head.get("Metadata", {}).get("sha256", "")) != expected_hash:
+            raise ValueError("artifact URI already contains different content")
+
+    def read_verified(self, uri: str, expected_hash: str) -> bytes:
+        key = _object_key(uri)
+        response = self._client.get_object(Bucket=self._bucket, Key=key)
+        content = cast(bytes, response["Body"].read())
         if sha256(content).hexdigest() != expected_hash:
             raise ValueError("artifact content hash mismatch")
         return content
@@ -72,3 +109,17 @@ class SupplyChainGate:
         if not report.passed:
             raise ValueError("supply chain gate failed: " + ",".join(report.vulnerabilities))
         return report
+
+
+def _object_key(uri: str) -> str:
+    if "://" not in uri:
+        raise ValueError("artifact URI must be object-store URI")
+    key = uri.split("://", 1)[1].split("/", 1)[-1]
+    if not key or key.startswith("/") or ".." in key.split("/"):
+        raise ValueError("invalid artifact object key")
+    return key
+
+
+def _error_code(error: Exception) -> str:
+    response = getattr(error, "response", {})
+    return str(response.get("Error", {}).get("Code", ""))

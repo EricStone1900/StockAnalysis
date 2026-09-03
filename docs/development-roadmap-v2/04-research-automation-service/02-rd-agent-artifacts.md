@@ -14,6 +14,10 @@
 依赖不在允许列表、许可证不在允许列表或存在高危漏洞时拒绝候选。当前存储实现仅用于本地测试，生产MinIO/S3、SBOM
 生成及漏洞数据库接入仍需在后续环境集成中完成。
 
+已补充`S3ArtifactStore`，支持通过Endpoint、Bucket和Secret连接MinIO/S3，并在对象写入与读取时再次校验Hash；
+同时提供幂等的`ModelCallAuditStore`，记录Provider、模型、Prompt版本、输入Hash、Token数和成本。真实环境仍需由部署配置
+提供凭证，禁止把凭证写入代码、锁文件或Artifact。
+
 ## 实施步骤
 
 1. 在Adapter层接RD-Agent，Domain只识别研究假设、候选Artifact和结果。
