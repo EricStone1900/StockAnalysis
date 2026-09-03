@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS portfolio_ledger_entries (
   entry_id TEXT PRIMARY KEY,
   portfolio_id TEXT NOT NULL,
   entry_type TEXT NOT NULL CHECK (entry_type IN ('OPENING', 'BUY', 'SELL', 'FEE', 'DIVIDEND', 'REVERSAL')),
-  amount TEXT NOT NULL CHECK (amount ~ '^-?[0-9]+(\\.[0-9]{1,8})?$'),
+  amount TEXT NOT NULL CHECK (amount ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
   occurred_at TIMESTAMPTZ NOT NULL,
   available_at TIMESTAMPTZ NOT NULL CHECK (available_at >= occurred_at),
   source_ref TEXT NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
   portfolio_id TEXT NOT NULL,
   account_id TEXT NOT NULL,
   as_of TIMESTAMPTZ NOT NULL,
-  cash TEXT NOT NULL CHECK (cash ~ '^-?[0-9]+(\\.[0-9]{1,8})?$'),
+  cash TEXT NOT NULL CHECK (cash ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
   positions JSONB NOT NULL,
   ledger_version INTEGER NOT NULL CHECK (ledger_version > 0),
   source_ref TEXT NOT NULL,
@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS portfolio_snapshots_latest_idx ON portfolio_snapshots (portfolio_id, ledger_version DESC);
+ALTER TABLE portfolio_ledger_entries DROP CONSTRAINT IF EXISTS portfolio_ledger_entries_amount_check;
+ALTER TABLE portfolio_ledger_entries ADD CONSTRAINT portfolio_ledger_entries_amount_check CHECK (amount ~ '^-?[0-9]+(\.[0-9]{1,8})?$');
+ALTER TABLE portfolio_snapshots DROP CONSTRAINT IF EXISTS portfolio_snapshots_cash_check;
+ALTER TABLE portfolio_snapshots ADD CONSTRAINT portfolio_snapshots_cash_check CHECK (cash ~ '^-?[0-9]+(\.[0-9]{1,8})?$');
 
 CREATE TABLE IF NOT EXISTS portfolio_snapshot_idempotency (
   portfolio_id TEXT NOT NULL,
