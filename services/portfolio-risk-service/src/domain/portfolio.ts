@@ -54,9 +54,19 @@ export interface OpeningSnapshotCommand {
 }
 
 export class PortfolioLedger {
-  private version = 0;
+  private version: number;
   private readonly snapshots = new Map<string, PortfolioSnapshot>();
   private readonly idempotency = new Map<string, PortfolioSnapshot>();
+
+  constructor(initialVersion = 0) {
+    if (!Number.isInteger(initialVersion) || initialVersion < 0) throw new Error('invalid initial ledger version');
+    this.version = initialVersion;
+  }
+
+  restoreVersion(version: number): void {
+    if (!Number.isInteger(version) || version < this.version) throw new Error('cannot restore an older ledger version');
+    this.version = version;
+  }
 
   importOpening(command: OpeningSnapshotCommand): PortfolioSnapshot {
     const repeated = this.idempotency.get(command.idempotencyKey);

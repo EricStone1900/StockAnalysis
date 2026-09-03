@@ -10,6 +10,7 @@ NestJS已提供`POST /api/v1/portfolios/{portfolioId}/manual-snapshots`和最新
 `migrations/001_portfolio_ledger.sql`以及参数化的`PostgresPortfolioRepository`：账本、快照和幂等记录分别保存，快照
 payload与Hash一并落库，便于审计和重放。设置`PORTFOLIO_DATABASE_URL`后，NestJS组合根会启动时执行幂等迁移并使用
 事务仓储；未设置时仍使用内存模式，便于Mac本地快速开发。本步骤不接收TradeProposal、不创建Approval或Order。
+数据库模式下每次写入前会读取最新快照并恢复账本版本，服务重启后仍能执行`expectedVersion`并发保护。
 
 ## 实施步骤
 
