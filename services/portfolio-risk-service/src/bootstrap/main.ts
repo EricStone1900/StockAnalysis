@@ -3,8 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
+import { Pool } from 'pg';
+import { readFile } from 'node:fs/promises';
 import { OpeningSnapshotCommand, PortfolioLedger } from '../domain/portfolio.js';
 import { PortfolioService } from '../application/portfolio-service.js';
+import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
 const serviceName = 'portfolio-risk-service';
 @Controller()
@@ -16,12 +19,12 @@ class HealthController {
 }
 @Controller('/api/v1/portfolios')
 class PortfolioController {
-  private readonly service = new PortfolioService(new PortfolioLedger());
+  private readonly service = createPortfolioService();
 
   @Post(':portfolioId/manual-snapshots')
-  importOpening(@Param('portfolioId') portfolioId: string, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
+  async importOpening(@Param('portfolioId') portfolioId: string, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
     try {
-      return this.service.importOpening({ ...body, portfolioId });
+      return await this.service.importOpening({ ...body, portfolioId });
     } catch (error) {
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
       throw new BadRequestException(error instanceof Error ? error.message : 'invalid opening snapshot');
@@ -29,12 +32,34 @@ class PortfolioController {
   }
 
   @Get(':portfolioId/snapshots/latest')
-  latest(@Param('portfolioId') portfolioId: string) {
-    const snapshot = this.service.latest(portfolioId);
+  async latest(@Param('portfolioId') portfolioId: string) {
+    const snapshot = await this.service.latest(portfolioId);
     if (!snapshot) throw new NotFoundException('snapshot not found');
     return snapshot;
   }
 }
+function createPortfolioService(): PortfolioService {
+  const databaseUrl = process.env.PORTFOLIO_DATABASE_URL;
+  if (!databaseUrl) return new PortfolioService(new PortfolioLedger());
+  const pool = new Pool({ connectionString: databaseUrl, max: 5 });
+  return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
+}
 @Module({ controllers: [HealthController, PortfolioController] }) class AppModule {}
-async function bootstrap() { const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName }); const app = await NestFactory.create(AppModule, new FastifyAdapter()); await app.listen(config.PORT, '0.0.0.0'); log('service.started', { service: serviceName }); }
+async function bootstrap() {
+  const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
+  await migratePortfolioDatabase();
+  const app = await NestFactory.create(AppModule, new FastifyAdapter());
+  await app.listen(config.PORT, '0.0.0.0');
+  log('service.started', { service: serviceName });
+}
+async function migratePortfolioDatabase(): Promise<void> {
+  const databaseUrl = process.env.PORTFOLIO_DATABASE_URL;
+  if (!databaseUrl) return;
+  const pool = new Pool({ connectionString: databaseUrl, max: 1 });
+  try {
+    await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
+  } finally {
+    await pool.end();
+  }
+}
 void bootstrap();

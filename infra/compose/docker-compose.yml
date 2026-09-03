@@ -126,6 +126,21 @@ services:
       timeout: 3s
       retries: 20
 
+  portfolio-risk-service:
+    build:
+      context: ../..
+      dockerfile: services/portfolio-risk-service/Dockerfile
+    environment:
+      PORTFOLIO_DATABASE_URL: postgresql://portfolio_risk:portfolio_risk_local_only@postgres:5432/portfolio_risk
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["3002:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }

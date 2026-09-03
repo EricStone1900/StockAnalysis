@@ -8,8 +8,8 @@
 
 NestJS已提供`POST /api/v1/portfolios/{portfolioId}/manual-snapshots`和最新快照查询入口。已补充
 `migrations/001_portfolio_ledger.sql`以及参数化的`PostgresPortfolioRepository`：账本、快照和幂等记录分别保存，快照
-payload与Hash一并落库，便于审计和重放。当前HTTP组合根仍使用内存账本，数据库连接注入和事务化切换安排在下一步，
-避免在未配置连接串时误写数据库。本步骤不接收TradeProposal、不创建Approval或Order。
+payload与Hash一并落库，便于审计和重放。设置`PORTFOLIO_DATABASE_URL`后，NestJS组合根会启动时执行幂等迁移并使用
+事务仓储；未设置时仍使用内存模式，便于Mac本地快速开发。本步骤不接收TradeProposal、不创建Approval或Order。
 
 ## 实施步骤
 
@@ -38,4 +38,5 @@ interface LedgerEntry {
 - `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service typecheck`
 - `COREPACK_HOME="$PWD/.corepack" pnpm --filter @stock/portfolio-risk-service test`
 - 单元测试覆盖重复导入、版本冲突、Decimal精度、参数化SQL以及最新快照查询。
-- 数据库迁移验证、真实PostgreSQL集成测试和事务化组合根属于下一步；未配置数据库时不得以假成功替代。
+- 真实PostgreSQL集成测试属于下一步；未配置数据库时不得以假成功替代。
+- 容器启动时以`PORTFOLIO_DATABASE_URL`选择数据库模式；Compose服务映射到宿主机`3002`端口。
