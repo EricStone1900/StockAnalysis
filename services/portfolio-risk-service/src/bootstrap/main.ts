@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Headers, Module, NotFoundException, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, Module, NotFoundException, Param, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -22,11 +22,13 @@ export class PortfolioController {
   constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = createPortfolioService()) {}
 
   @Post(':portfolioId/manual-snapshots')
-  async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
+  async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
     try {
       if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
+      if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
       return await this.service.importOpening({ ...body, portfolioId });
     } catch (error) {
+      if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
       throw new BadRequestException(error instanceof Error ? error.message : 'invalid opening snapshot');
     }
@@ -40,13 +42,14 @@ export class PortfolioController {
   }
 
   @Post(':portfolioId/ledger-entries/:entryId/reversals')
-  async reverse(@Param('portfolioId') portfolioId: string, @Param('entryId') entryId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Body() body: Omit<ReversalCommand, 'portfolioId' | 'originalEntryId'>) {
+  async reverse(@Param('portfolioId') portfolioId: string, @Param('entryId') entryId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Body() body: Omit<ReversalCommand, 'portfolioId' | 'originalEntryId'>) {
     try {
       if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
+      if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
       if (!this.service.reverse) throw new BadRequestException('reversal is not configured');
       return await this.service.reverse({ ...body, portfolioId, originalEntryId: entryId });
     } catch (error) {
-      if (error instanceof ConflictException || error instanceof BadRequestException) throw error;
+      if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
       throw new BadRequestException(error instanceof Error ? error.message : 'invalid reversal');
     }
