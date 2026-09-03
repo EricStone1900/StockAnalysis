@@ -1,5 +1,15 @@
 # 04-02 RD-Agent与可复现Artifact
 
+## 当前最小切片
+
+当前只实现Adapter边界和可复现元数据，不调用真实LLM或RD-Agent Provider。`ReproducibilityManifest`固定DataVersion、
+数据Artifact Hash、依赖锁Hash、镜像Digest、参数Hash、随机种子和评估协议版本，并生成确定性内容Hash。
+`CandidateCodeScanner`在代码进入Sandbox前拒绝网络、进程、Secret、动态执行和运行时安装依赖；
+`FixedRDAGENTAdapter`只登记扫描通过的候选代码Artifact，不拥有quant生产Registry权限。
+
+本切片测试覆盖Hash稳定性、环境变更产生新Hash、安全扫描拒绝和候选Artifact元数据校验。真实Provider调用、SBOM/许可证
+服务、对象存储发布和完整Artifact复现留在后续实现；不得把本地扫描结果当作生产候选审批。
+
 ## 实施步骤
 
 1. 在Adapter层接RD-Agent，Domain只识别研究假设、候选Artifact和结果。
@@ -14,4 +24,3 @@
 - 候选代码中的网络、Secret和动态安装请求被拒绝。
 - 相同Artifact和环境可重现实验指标。
 - 模型输出不符合Schema时有限修复后失败关闭。
-
