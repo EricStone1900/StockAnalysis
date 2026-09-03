@@ -13,4 +13,13 @@ describe('PortfolioService database recovery', () => {
     expect(snapshot.ledgerVersion).toBe(3);
     expect(repository.appendOpening).toHaveBeenCalledOnce();
   });
+
+  it('re-reads an existing snapshot after a concurrent unique-key conflict', async () => {
+    const persisted = new PortfolioLedger().importOpening({ ...command, expectedVersion: 0 });
+    const duplicateError = Object.assign(new Error('duplicate'), { code: '23505' });
+    const repository = { findByIdempotency: vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce(persisted), latest: vi.fn().mockResolvedValue(undefined), appendOpening: vi.fn().mockRejectedValue(duplicateError) };
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await expect(service.importOpening({ ...command, expectedVersion: 0 })).resolves.toEqual(persisted);
+    expect(repository.findByIdempotency).toHaveBeenCalledTimes(2);
+  });
 });

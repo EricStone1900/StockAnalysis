@@ -11,6 +11,7 @@ NestJS已提供`POST /api/v1/portfolios/{portfolioId}/manual-snapshots`和最新
 payload与Hash一并落库，便于审计和重放。设置`PORTFOLIO_DATABASE_URL`后，NestJS组合根会启动时执行幂等迁移并使用
 事务仓储；未设置时仍使用内存模式，便于Mac本地快速开发。本步骤不接收TradeProposal、不创建Approval或Order。
 数据库模式下每次写入前会读取最新快照并恢复对应 Portfolio 的账本版本，服务重启后仍能执行`expectedVersion`并发保护；不同 Portfolio 的版本互不干扰。
+并发请求若触发 PostgreSQL 唯一约束（`23505`），应用会重新读取幂等记录并返回已提交快照，避免把正常竞态误报为服务器错误。
 
 ## 实施步骤
 
