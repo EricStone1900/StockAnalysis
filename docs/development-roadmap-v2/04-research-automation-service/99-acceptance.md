@@ -1,5 +1,14 @@
 # research-automation-service验收
 
+## Mac验证入口
+
+```bash
+./scripts/stage04-verify-mac.sh
+```
+
+本地通过只代表研究服务领域和契约切片可运行；PostgreSQL、真实MinIO、Sandbox容器隔离和跨服务权限必须在Ubuntu
+完成后才能签署阶段04验收。
+
 - [ ] 固定脚本最小实验闭环通过。
 - [ ] RD-Agent Adapter和模型审计通过。
 - [ ] Sandbox权限和资源隔离通过。
