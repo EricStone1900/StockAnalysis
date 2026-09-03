@@ -10,6 +10,10 @@ approve、activate或写入quant Registry的方法；人工批准和创建新CAN
 验证属于后续组件集成。现已增加`research_promotion_requests`与幂等键表，保存请求、风险、Manifest、门禁结果和拒绝原因；
 真实环境仍需由quant服务执行独立复验、人工批准和版本创建。研究服务停止不应影响阶段03每日生产链路。
 
+已冻结`PromotionSubmission`与`QuantReproductionResponse`跨服务契约。研究服务只发送请求ID、候选内容Hash、DataVersion、
+Artifact URI/SHA-256和Manifest Hash；`ResearchPromotionClient`没有激活方法，研究身份调用激活会被本地权限策略拒绝。
+生产环境仍需用生成的OpenAPI/AsyncAPI类型和独立服务账户执行网络层403权限验证。
+
 ## 实施步骤
 
 1. 研究服务只发布PromotionRequest：候选类型、Artifact、数据、评估摘要、风险和Hash。
