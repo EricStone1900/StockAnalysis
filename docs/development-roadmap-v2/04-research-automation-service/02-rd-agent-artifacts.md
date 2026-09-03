@@ -22,6 +22,9 @@
 额外字段、负Token/成本或超大响应均失败关闭；模型调用审计先于Schema解析写入。`FixedModelProvider`仅用于本地契约测试，
 真实Provider切换不得改变Domain契约。
 
+`ResearchResultManifest`现在绑定实验、运行、候选Artifact、模型提案、指标和可复现清单，并生成规范内容Hash；
+`IndependentReproducer`使用同一组固定输入复算指标，任一指标不一致即拒绝。Manifest只引用Artifact URI/Hash，不嵌入代码和大日志。
+
 ## 实施步骤
 
 1. 在Adapter层接RD-Agent，Domain只识别研究假设、候选Artifact和结果。
