@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, Module, NotFoundException, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, Injectable, Module, NotFoundException, OnApplicationShutdown, Param, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -21,6 +21,10 @@ export class HealthController {
   }
   @Get('/metrics') metrics() { return ''; }
   @Get('/version') version() { return { service: serviceName, version: '0.1.0' }; }
+}
+@Injectable()
+class DatabaseLifecycle implements OnApplicationShutdown {
+  async onApplicationShutdown(): Promise<void> { if (process.env.NODE_ENV !== 'test' && databasePool) await databasePool.end(); }
 }
 @Controller('/api/v1/portfolios')
 export class PortfolioController {
@@ -68,11 +72,12 @@ function createPortfolioService(): PortfolioService {
   return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(databasePool ?? new Pool({ connectionString: databaseUrl, max: 5 })));
 }
 export class AppModule {}
-Module({ controllers: [HealthController, PortfolioController] })(AppModule);
+Module({ controllers: [HealthController, PortfolioController], providers: [DatabaseLifecycle] })(AppModule);
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   await migratePortfolioDatabase();
   const app = await NestFactory.create(AppModule, new FastifyAdapter());
+  app.enableShutdownHooks();
   await app.listen(config.PORT, '0.0.0.0');
   log('service.started', { service: serviceName });
 }
