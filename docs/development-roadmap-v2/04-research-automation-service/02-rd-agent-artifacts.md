@@ -18,6 +18,10 @@
 同时提供幂等的`ModelCallAuditStore`，记录Provider、模型、Prompt版本、输入Hash、Token数和成本。真实环境仍需由部署配置
 提供凭证，禁止把凭证写入代码、锁文件或Artifact。
 
+`ProviderAdapter`已实现严格的`CandidateProposal`输出Schema和响应大小门禁。非法JSON、缺少支持证据/反例/失败原因、
+额外字段、负Token/成本或超大响应均失败关闭；模型调用审计先于Schema解析写入。`FixedModelProvider`仅用于本地契约测试，
+真实Provider切换不得改变Domain契约。
+
 ## 实施步骤
 
 1. 在Adapter层接RD-Agent，Domain只识别研究假设、候选Artifact和结果。
