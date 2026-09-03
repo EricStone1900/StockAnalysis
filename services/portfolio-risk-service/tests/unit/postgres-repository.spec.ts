@@ -24,4 +24,9 @@ describe('PostgresPortfolioRepository', () => {
     await new PostgresPortfolioRepository({ query }).appendReversal({ portfolioId: 'p-1', originalEntryId: 'entry-1', occurredAt: '2026-09-03T00:00:00Z', availableAt: '2026-09-03T00:00:00Z', sourceRef: 'reversal', actorId: 'actor', reason: '冲正', expectedVersion: 1, idempotencyKey: 'key' }, { entryId: 'reversal-1', portfolioId: 'p-1', type: 'REVERSAL', amount: '-1', occurredAt: '2026-09-03T00:00:00Z', availableAt: '2026-09-03T00:00:00Z', sourceRef: 'reversal', actorId: 'actor', reason: '冲正' });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('reversal_of_entry_id'), expect.arrayContaining(['entry-1']));
   });
+
+  it('reads an original ledger entry for restart recovery', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ entry_id: 'entry-1', portfolio_id: 'p-1', entry_type: 'OPENING', amount: '1', occurred_at: '2026-09-03T00:00:00Z', available_at: '2026-09-03T00:00:00Z', source_ref: 'src', actor_id: 'actor', reason: 'opening' }] });
+    await expect(new PostgresPortfolioRepository({ query }).findEntry('entry-1')).resolves.toMatchObject({ entryId: 'entry-1', type: 'OPENING' });
+  });
 });

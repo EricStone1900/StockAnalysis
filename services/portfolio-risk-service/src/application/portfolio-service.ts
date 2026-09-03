@@ -2,6 +2,7 @@ import { LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
+  findEntry?(entryId: string): Promise<LedgerEntry | undefined>;
   appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
 }
@@ -36,6 +37,10 @@ export class PortfolioService {
   }
 
   async reverse(command: ReversalCommand): Promise<LedgerEntry> {
+    if (this.repository?.findEntry) {
+      const original = await this.repository.findEntry(command.originalEntryId);
+      if (original) this.ledger.restoreEntry(original);
+    }
     const entry = this.ledger.reverse(command);
     if (this.repository?.appendReversal) await this.repository.appendReversal(command, entry);
     return entry;

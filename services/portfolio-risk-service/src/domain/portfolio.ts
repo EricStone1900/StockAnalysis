@@ -84,6 +84,8 @@ export class PortfolioLedger {
     this.versions.set(portfolioId, version);
   }
 
+  restoreEntry(entry: LedgerEntry): void { this.entries.set(entry.entryId, entry); }
+
   importOpening(command: OpeningSnapshotCommand): PortfolioSnapshot {
     const repeated = this.idempotency.get(command.idempotencyKey);
     if (repeated) return repeated;

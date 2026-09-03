@@ -27,6 +27,14 @@ export class PostgresPortfolioRepository {
     return result.rows[0]?.payload;
   }
 
+  async findEntry(entryId: string): Promise<LedgerEntry | undefined> {
+    const result = await this.client.query<Record<string, unknown> & { entry_type: LedgerEntry['type']; entry_id: string; portfolio_id: string; occurred_at: string; available_at: string; source_ref: string; actor_id: string; amount: string; reason: string }>(
+      `SELECT entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason FROM portfolio_ledger_entries WHERE entry_id = $1`, [entryId],
+    );
+    const row = result.rows[0];
+    return row ? { entryId: row.entry_id, portfolioId: row.portfolio_id, type: row.entry_type, amount: row.amount, occurredAt: row.occurred_at, availableAt: row.available_at, sourceRef: row.source_ref, actorId: row.actor_id, reason: row.reason } : undefined;
+  }
+
   async appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void> {
     const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
     await connection.query('BEGIN');
