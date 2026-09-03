@@ -22,10 +22,11 @@ export class PortfolioController {
   constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = createPortfolioService()) {}
 
   @Post(':portfolioId/manual-snapshots')
-  async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
+  async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
     try {
       if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
       if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
+      if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
       return await this.service.importOpening({ ...body, portfolioId });
     } catch (error) {
       if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
@@ -42,10 +43,11 @@ export class PortfolioController {
   }
 
   @Post(':portfolioId/ledger-entries/:entryId/reversals')
-  async reverse(@Param('portfolioId') portfolioId: string, @Param('entryId') entryId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Body() body: Omit<ReversalCommand, 'portfolioId' | 'originalEntryId'>) {
+  async reverse(@Param('portfolioId') portfolioId: string, @Param('entryId') entryId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: Omit<ReversalCommand, 'portfolioId' | 'originalEntryId'>) {
     try {
       if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
       if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
+      if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
       if (!this.service.reverse) throw new BadRequestException('reversal is not configured');
       return await this.service.reverse({ ...body, portfolioId, originalEntryId: entryId });
     } catch (error) {

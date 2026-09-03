@@ -38,6 +38,7 @@
 - `400`：字段缺失、格式错误或数量非正数。
 - `409`：同一 Portfolio 的 `expectedVersion` 过期。
 - `403`：缺少或伪造 `X-Actor-Id`（生产环境还需由网关身份声明映射到该值）。
+- `400`：缺少 `X-Correlation-Id`；该请求头用于日志、审计和后续事件链路关联。
 - 相同 Portfolio 与 `Idempotency-Key` 重复请求返回首次快照；并发唯一键冲突会重新读取已提交快照。
 - 冲正流水也持久化 `idempotency_key`；服务重启后相同冲正键仍返回首次 `REVERSAL` 事实。
 - 本阶段不提供交易、审批、Order 或 RiskPolicy 写接口。
