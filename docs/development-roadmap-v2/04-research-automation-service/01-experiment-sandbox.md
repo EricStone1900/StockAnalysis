@@ -7,9 +7,9 @@
 资源预算；相同幂等键返回同一实验，输入不同立即拒绝。实验只可使用只读数据Artifact引用，禁止读取quant数据库、生产
 Registry、券商账户、Docker Socket、宿主目录或Secret。
 
-`ExperimentRun`记录Sandbox配置Hash、脚本/输入Hash、退出码、状态、指标摘要及日志Artifact引用。首版日志和指标只
-保存在应用内存，用于最小纵向切片；持久化、Artifact对象存储和事件Outbox在后续步骤补齐。任何失败只能将实验置为
-`REJECTED`，不得创建PromotionRequest、不得写入阶段03的快照或Registry。
+`ExperimentRun`记录Sandbox配置Hash、脚本/输入Hash、退出码、状态、指标摘要及日志Artifact引用。当前切片已提供
+PostgreSQL实验/幂等键仓储，并在同一事务写入完成事件Outbox；日志Artifact对象存储和完整Outbox投递器仍留在后续步骤。
+任何失败只能将实验置为`REJECTED`，不得创建PromotionRequest、不得写入阶段03的快照或Registry。
 
 Sandbox命令必须显式包含非root用户、`--network none`、只读根文件系统、`no-new-privileges`、移除Linux capabilities、
 受限CPU/内存/PID、受限临时目录，以及DataVersion只读挂载。Docker/Kubernetes仅可在Adapter层出现；Domain和API

@@ -1,12 +1,17 @@
+import os
+
 from fastapi import FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from src.research_automation.application import ExperimentService, InMemoryExperimentRepository
 from src.research_automation.domain import DEFAULT_SANDBOX_BUDGET, ExperimentInput, SandboxBudget
+from src.research_automation.persistence import PostgresExperimentRepository
 from src.research_automation.sandbox import FixedScriptSandbox
 
 app = FastAPI(title="research-automation-service", version="0.1.0")
-_experiments = ExperimentService(InMemoryExperimentRepository(), FixedScriptSandbox())
+_database_url = os.getenv("RESEARCH_AUTOMATION_DATABASE_URL")
+_repository = InMemoryExperimentRepository() if not _database_url else PostgresExperimentRepository(_database_url)
+_experiments = ExperimentService(_repository, FixedScriptSandbox())
 
 
 class SandboxBudgetRequest(BaseModel):
