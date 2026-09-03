@@ -11,6 +11,7 @@
 - 服务级集成测试需关闭并重新创建 Nest 应用后继续写入，确认数据库快照和 `ledgerVersion` 跨重启恢复。
 - `/ready` 在数据库模式执行 `SELECT 1` 探测；数据库不可用必须显示 `DOWN`，内存模式显示 `NOT_CONFIGURED`，不可将依赖故障伪装为 `UP`。
 - 应用关闭时必须触发连接池释放；测试环境为支持多实例恢复测试而禁用自动释放，生产环境不得禁用。
+- 容器构建必须使用仓库根 `.dockerignore`，不得把 `node_modules`、`.venv`、缓存和本机凭据发送到构建上下文；镜像构建后需在 Ubuntu 启动并检查 `3002/live`、`3002/ready`。
 - RBAC：Agent只读，Governance只调用evaluate，Execution只提交Fill事实。
 
 必须包含长期HOLD、零交易、卖出降风险和新增仓位失败关闭场景。
