@@ -8,7 +8,7 @@ describe('PostgresPortfolioRepository', () => {
   it('uses parameterized queries and persists the immutable payload', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     await new PostgresPortfolioRepository({ query }).appendOpening(command, snapshot);
-    expect(query).toHaveBeenCalledTimes(3);
+    expect(query).toHaveBeenCalledTimes(5);
     expect(query.mock.calls.every(([sql]) => !String(sql).includes('p-1'))).toBe(true);
   });
 
