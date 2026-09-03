@@ -27,6 +27,12 @@
 
 `GET /api/v1/portfolios/{portfolioId}/snapshots/latest` 返回最新快照；不存在返回 `404`。
 
+## 流水冲正
+
+`POST /api/v1/portfolios/{portfolioId}/ledger-entries/{entryId}/reversals` 新增一条冲正流水。请求体字段为
+`occurredAt`、`availableAt`、`sourceRef`、`actorId`、`reason`、`expectedVersion` 和 `idempotencyKey`；请求头
+`Idempotency-Key` 必须与 body 一致。原流水不会被修改，重复冲正返回 `400`，版本冲突返回 `409`。
+
 ## 错误与幂等
 
 - `400`：字段缺失、格式错误或数量非正数。

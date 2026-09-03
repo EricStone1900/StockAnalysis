@@ -5,7 +5,7 @@ import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
-import { OpeningSnapshotCommand, PortfolioLedger } from '../domain/portfolio.js';
+import { OpeningSnapshotCommand, PortfolioLedger, ReversalCommand } from '../domain/portfolio.js';
 import { PortfolioService } from '../application/portfolio-service.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
@@ -19,7 +19,7 @@ class HealthController {
 }
 @Controller('/api/v1/portfolios')
 export class PortfolioController {
-  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> = createPortfolioService()) {}
+  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = createPortfolioService()) {}
 
   @Post(':portfolioId/manual-snapshots')
   async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
@@ -37,6 +37,19 @@ export class PortfolioController {
     const snapshot = await this.service.latest(portfolioId);
     if (!snapshot) throw new NotFoundException('snapshot not found');
     return snapshot;
+  }
+
+  @Post(':portfolioId/ledger-entries/:entryId/reversals')
+  async reverse(@Param('portfolioId') portfolioId: string, @Param('entryId') entryId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Body() body: Omit<ReversalCommand, 'portfolioId' | 'originalEntryId'>) {
+    try {
+      if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
+      if (!this.service.reverse) throw new BadRequestException('reversal is not configured');
+      return await this.service.reverse({ ...body, portfolioId, originalEntryId: entryId });
+    } catch (error) {
+      if (error instanceof ConflictException || error instanceof BadRequestException) throw error;
+      if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'invalid reversal');
+    }
   }
 }
 function createPortfolioService(): PortfolioService {

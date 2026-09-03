@@ -18,4 +18,11 @@ describe('PortfolioController API mapping', () => {
     await expect(controller.importOpening('p-1', 'key', { idempotencyKey: 'key' } as never)).rejects.toBeInstanceOf(ConflictException);
     await expect(controller.importOpening('p-1', 'key', { idempotencyKey: 'other' } as never)).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('exposes the reversal endpoint with idempotency validation', async () => {
+    const service = { importOpening: vi.fn(), latest: vi.fn(), reverse: vi.fn().mockResolvedValue({ type: 'REVERSAL' }) };
+    const controller = new PortfolioController(service);
+    await expect(controller.reverse('p-1', 'entry-1', 'reverse-key', { idempotencyKey: 'reverse-key' } as never)).resolves.toEqual({ type: 'REVERSAL' });
+    await expect(controller.reverse('p-1', 'entry-1', 'wrong', { idempotencyKey: 'reverse-key' } as never)).rejects.toBeInstanceOf(BadRequestException);
+  });
 });
