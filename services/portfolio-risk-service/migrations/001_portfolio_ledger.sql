@@ -8,8 +8,11 @@ CREATE TABLE IF NOT EXISTS portfolio_ledger_entries (
   source_ref TEXT NOT NULL,
   actor_id TEXT NOT NULL,
   reason TEXT NOT NULL,
+  reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS reversal_of_entry_id TEXT REFERENCES portfolio_ledger_entries(entry_id);
+CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_one_reversal_idx ON portfolio_ledger_entries (reversal_of_entry_id) WHERE reversal_of_entry_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS portfolio_snapshots (
   snapshot_id TEXT PRIMARY KEY,

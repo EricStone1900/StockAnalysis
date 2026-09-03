@@ -1,8 +1,9 @@
-import { OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot } from '../domain/portfolio.js';
+import { LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
   appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void>;
+  appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
 }
 
 export class PortfolioService {
@@ -32,6 +33,12 @@ export class PortfolioService {
 
   async latest(portfolioId: string): Promise<PortfolioSnapshot | undefined> {
     return (await this.repository?.latest(portfolioId)) ?? this.ledger.latest(portfolioId);
+  }
+
+  async reverse(command: ReversalCommand): Promise<LedgerEntry> {
+    const entry = this.ledger.reverse(command);
+    if (this.repository?.appendReversal) await this.repository.appendReversal(command, entry);
+    return entry;
   }
 }
 

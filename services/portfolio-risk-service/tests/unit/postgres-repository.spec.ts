@@ -18,4 +18,10 @@ describe('PostgresPortfolioRepository', () => {
     await expect(repository.latest('p-1')).resolves.toEqual(snapshot);
     await expect(repository.findByIdempotency('p-1', 'key-1')).resolves.toEqual(snapshot);
   });
+
+  it('persists a reversal linked to its original entry', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    await new PostgresPortfolioRepository({ query }).appendReversal({ portfolioId: 'p-1', originalEntryId: 'entry-1', occurredAt: '2026-09-03T00:00:00Z', availableAt: '2026-09-03T00:00:00Z', sourceRef: 'reversal', actorId: 'actor', reason: '冲正', expectedVersion: 1, idempotencyKey: 'key' }, { entryId: 'reversal-1', portfolioId: 'p-1', type: 'REVERSAL', amount: '-1', occurredAt: '2026-09-03T00:00:00Z', availableAt: '2026-09-03T00:00:00Z', sourceRef: 'reversal', actorId: 'actor', reason: '冲正' });
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('reversal_of_entry_id'), expect.arrayContaining(['entry-1']));
+  });
 });

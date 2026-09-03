@@ -1,4 +1,4 @@
-import type { OpeningSnapshotCommand, PortfolioSnapshot } from '../domain/portfolio.js';
+import type { LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -55,5 +55,14 @@ export class PostgresPortfolioRepository {
     } finally {
       connection.release?.();
     }
+  }
+
+  async appendReversal(command: ReversalCommand, entry: LedgerEntry): Promise<void> {
+    await this.client.query(
+      `INSERT INTO portfolio_ledger_entries
+        (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason, reversal_of_entry_id)
+       VALUES ($1, $2, 'REVERSAL', $3, $4, $5, $6, $7, $8, $9)`,
+      [entry.entryId, entry.portfolioId, entry.amount, entry.occurredAt, entry.availableAt, entry.sourceRef, entry.actorId, entry.reason, command.originalEntryId],
+    );
   }
 }
