@@ -1,4 +1,4 @@
-import { Body, ConflictException, Controller, Get, Module, Param, Post, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Module, NotFoundException, Param, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -30,7 +30,9 @@ class PortfolioController {
 
   @Get(':portfolioId/snapshots/latest')
   latest(@Param('portfolioId') portfolioId: string) {
-    return this.service.latest(portfolioId) ?? { statusCode: 404, message: 'snapshot not found' };
+    const snapshot = this.service.latest(portfolioId);
+    if (!snapshot) throw new NotFoundException('snapshot not found');
+    return snapshot;
   }
 }
 @Module({ controllers: [HealthController, PortfolioController] }) class AppModule {}
