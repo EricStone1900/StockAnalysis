@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Module, NotFoundException, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, Get, Headers, Module, NotFoundException, Param, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -22,8 +22,9 @@ export class PortfolioController {
   constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> = createPortfolioService()) {}
 
   @Post(':portfolioId/manual-snapshots')
-  async importOpening(@Param('portfolioId') portfolioId: string, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
+  async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
     try {
+      if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
       return await this.service.importOpening({ ...body, portfolioId });
     } catch (error) {
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);

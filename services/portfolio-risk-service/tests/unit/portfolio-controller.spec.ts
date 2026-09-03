@@ -7,7 +7,7 @@ describe('PortfolioController API mapping', () => {
   it('returns a snapshot and maps missing data to 404', async () => {
     const service = { importOpening: vi.fn().mockResolvedValue(snapshot), latest: vi.fn().mockResolvedValueOnce(snapshot).mockResolvedValueOnce(undefined) };
     const controller = new PortfolioController(service);
-    await expect(controller.importOpening('p-1', {} as never)).resolves.toEqual(snapshot);
+    await expect(controller.importOpening('p-1', 'key-1', { idempotencyKey: 'key-1' } as never)).resolves.toEqual(snapshot);
     await expect(controller.latest('p-1')).resolves.toEqual(snapshot);
     await expect(controller.latest('p-1')).rejects.toBeInstanceOf(NotFoundException);
   });
@@ -15,7 +15,7 @@ describe('PortfolioController API mapping', () => {
   it('maps version conflicts to 409 and validation errors to 400', async () => {
     const service = { importOpening: vi.fn().mockRejectedValueOnce(new Error('ledger version conflict')).mockRejectedValueOnce(new Error('invalid event time')), latest: vi.fn() };
     const controller = new PortfolioController(service);
-    await expect(controller.importOpening('p-1', {} as never)).rejects.toBeInstanceOf(ConflictException);
-    await expect(controller.importOpening('p-1', {} as never)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.importOpening('p-1', 'key', { idempotencyKey: 'key' } as never)).rejects.toBeInstanceOf(ConflictException);
+    await expect(controller.importOpening('p-1', 'key', { idempotencyKey: 'other' } as never)).rejects.toBeInstanceOf(BadRequestException);
   });
 });
