@@ -8,6 +8,7 @@
 - 行情缺失、陈旧、超时和恢复。
 - OpenAPI、Portfolio/Risk事件、Outbox/Inbox重放。
 - API契约必须核对[05-01接口契约](./02-api-contract.md)：路径、字段、错误码、幂等和版本语义保持一致。
+- 服务级集成测试需关闭并重新创建 Nest 应用后继续写入，确认数据库快照和 `ledgerVersion` 跨重启恢复。
 - RBAC：Agent只读，Governance只调用evaluate，Execution只提交Fill事实。
 
 必须包含长期HOLD、零交易、卖出降风险和新增仓位失败关闭场景。

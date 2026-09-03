@@ -58,7 +58,8 @@ function createPortfolioService(): PortfolioService {
   const pool = new Pool({ connectionString: databaseUrl, max: 5 });
   return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
 }
-@Module({ controllers: [HealthController, PortfolioController] }) class AppModule {}
+export class AppModule {}
+Module({ controllers: [HealthController, PortfolioController] })(AppModule);
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   await migratePortfolioDatabase();
