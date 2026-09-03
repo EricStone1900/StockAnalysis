@@ -13,6 +13,7 @@ payload与Hash一并落库，便于审计和重放。设置`PORTFOLIO_DATABASE_U
 数据库模式下每次写入前会读取最新快照并恢复对应 Portfolio 的账本版本，服务重启后仍能执行`expectedVersion`并发保护；不同 Portfolio 的版本互不干扰。
 并发请求若触发 PostgreSQL 唯一约束（`23505`），应用会重新读取幂等记录并返回已提交快照，避免把正常竞态误报为服务器错误。
 集成测试已验证两个独立服务实例并发提交相同命令时只返回同一份已提交快照；重读最多重试 3 次且每次间隔 10ms。
+快照表对 `(portfolio_id, ledger_version)` 建立唯一索引；不同幂等键同时使用同一版本时仅一个请求成功，另一个返回版本冲突。
 领域层和 PostgreSQL 均已支持冲正：原始 Entry 不修改，新增带 `reversal_of_entry_id` 的 `REVERSAL` Entry，数据库唯一索引禁止重复冲正；相同冲正幂等键返回首次结果。
 冲正前会从 PostgreSQL 恢复原始 Entry，使服务重启后仍可执行冲正；恢复查询找不到原流水时按输入错误处理。
 

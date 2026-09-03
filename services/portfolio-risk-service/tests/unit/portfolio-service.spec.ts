@@ -22,4 +22,10 @@ describe('PortfolioService database recovery', () => {
     await expect(service.importOpening({ ...command, expectedVersion: 0 })).resolves.toEqual(persisted);
     expect(repository.findByIdempotency).toHaveBeenCalledTimes(2);
   });
+
+  it('turns an unrelated unique conflict into a version conflict', async () => {
+    const duplicateError = Object.assign(new Error('duplicate version'), { code: '23505' });
+    const repository = { findByIdempotency: vi.fn().mockResolvedValue(undefined), latest: vi.fn().mockResolvedValue(undefined), appendOpening: vi.fn().mockRejectedValue(duplicateError) };
+    await expect(new PortfolioService(new PortfolioLedger(), repository).importOpening({ ...command, expectedVersion: 0 })).rejects.toThrow('ledger version conflict');
+  });
 });

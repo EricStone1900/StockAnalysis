@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -43,5 +43,14 @@ suite('PostgreSQL portfolio persistence', () => {
     const second = new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
     const [left, right] = await Promise.all([first.importOpening(concurrentCommand), second.importOpening(concurrentCommand)]);
     expect(left.snapshotId).toBe(right.snapshotId);
+  });
+
+  it('allows only one of two concurrent different commands at the same version', async () => {
+    const base = { ...concurrentCommand, portfolioId: `${portfolioId}-lock` };
+    const left = new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
+    const right = new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(pool));
+    const results = await Promise.allSettled([left.importOpening({ ...base, idempotencyKey: 'lock-left' }), right.importOpening({ ...base, idempotencyKey: 'lock-right' })]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
   });
 });

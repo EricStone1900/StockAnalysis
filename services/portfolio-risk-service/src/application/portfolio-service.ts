@@ -26,6 +26,7 @@ export class PortfolioService {
         if (isUniqueViolation(error)) {
           const repeated = await readIdempotentWithRetry(this.repository, command.portfolioId, command.idempotencyKey);
           if (repeated) return repeated;
+          throw new Error('ledger version conflict');
         }
         throw error;
       }

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshots (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS portfolio_snapshots_latest_idx ON portfolio_snapshots (portfolio_id, ledger_version DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS portfolio_snapshots_version_idx ON portfolio_snapshots (portfolio_id, ledger_version);
 ALTER TABLE portfolio_ledger_entries DROP CONSTRAINT IF EXISTS portfolio_ledger_entries_amount_check;
 ALTER TABLE portfolio_ledger_entries ADD CONSTRAINT portfolio_ledger_entries_amount_check CHECK (amount ~ '^-?[0-9]+(\.[0-9]{1,8})?$');
 ALTER TABLE portfolio_snapshots DROP CONSTRAINT IF EXISTS portfolio_snapshots_cash_check;
