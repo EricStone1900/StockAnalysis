@@ -16,7 +16,7 @@ export class PortfolioService {
       const repeated = await this.repository.findByIdempotency(command.portfolioId, command.idempotencyKey);
       if (repeated) return repeated;
       const latest = await this.repository.latest(command.portfolioId);
-      if (latest) this.ledger.restoreVersion(command.portfolioId, latest.ledgerVersion);
+      if (latest) this.ledger.restoreSnapshot(latest);
     }
     const snapshot = this.ledger.importOpening(command);
     if (this.repository) {

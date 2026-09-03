@@ -42,4 +42,13 @@ describe('portfolio ledger opening snapshot', () => {
     expect(ledger.reverse({ portfolioId: 'portfolio-1', originalEntryId: `ledger-entry-${opening.snapshotId}`, occurredAt: opening.asOf, availableAt: opening.asOf, sourceRef: 'reversal-1', actorId: 'operator-1', reason: '冲正', expectedVersion: 99, idempotencyKey: 'reversal-key' })).toEqual(reversal);
     expect(() => ledger.reverse({ portfolioId: 'portfolio-1', originalEntryId: `ledger-entry-${opening.snapshotId}`, occurredAt: opening.asOf, availableAt: opening.asOf, sourceRef: 'reversal-2', actorId: 'operator-1', reason: '重复冲正', expectedVersion: 2, idempotencyKey: 'reversal-key-2' })).toThrow('already reversed');
   });
+
+  it('restores the latest snapshot into the in-memory view', () => {
+    const source = new PortfolioLedger();
+    const snapshot = source.importOpening(command());
+    const restored = new PortfolioLedger();
+    restored.restoreSnapshot(snapshot);
+    expect(restored.latest('portfolio-1')).toEqual(snapshot);
+    expect(restored.importOpening(command({ idempotencyKey: 'opening-2', expectedVersion: 1 })).ledgerVersion).toBe(2);
+  });
 });
