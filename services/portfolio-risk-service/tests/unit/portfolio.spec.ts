@@ -32,4 +32,14 @@ describe('portfolio ledger opening snapshot', () => {
     expect(ledger.importOpening(command()).ledgerVersion).toBe(1);
     expect(ledger.importOpening(command({ portfolioId: 'portfolio-2', idempotencyKey: 'opening-portfolio-2' })).ledgerVersion).toBe(1);
   });
+
+  it('creates an immutable reversal and rejects a second reversal', () => {
+    const ledger = new PortfolioLedger();
+    const opening = ledger.importOpening(command());
+    const reversal = ledger.reverse({ portfolioId: 'portfolio-1', originalEntryId: `ledger-entry-${opening.snapshotId}`, occurredAt: opening.asOf, availableAt: opening.asOf, sourceRef: 'reversal-1', actorId: 'operator-1', reason: '冲正', expectedVersion: 1, idempotencyKey: 'reversal-key' });
+    expect(reversal.type).toBe('REVERSAL');
+    expect(reversal.amount).toBe('-100000.00');
+    expect(ledger.reverse({ portfolioId: 'portfolio-1', originalEntryId: `ledger-entry-${opening.snapshotId}`, occurredAt: opening.asOf, availableAt: opening.asOf, sourceRef: 'reversal-1', actorId: 'operator-1', reason: '冲正', expectedVersion: 99, idempotencyKey: 'reversal-key' })).toEqual(reversal);
+    expect(() => ledger.reverse({ portfolioId: 'portfolio-1', originalEntryId: `ledger-entry-${opening.snapshotId}`, occurredAt: opening.asOf, availableAt: opening.asOf, sourceRef: 'reversal-2', actorId: 'operator-1', reason: '重复冲正', expectedVersion: 2, idempotencyKey: 'reversal-key-2' })).toThrow('already reversed');
+  });
 });

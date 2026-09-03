@@ -52,11 +52,25 @@ export interface OpeningSnapshotCommand {
   readonly expectedVersion: number;
   readonly idempotencyKey: string;
 }
+export interface ReversalCommand {
+  readonly portfolioId: string;
+  readonly originalEntryId: string;
+  readonly occurredAt: string;
+  readonly availableAt: string;
+  readonly sourceRef: string;
+  readonly actorId: string;
+  readonly reason: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+}
 
 export class PortfolioLedger {
   private readonly versions = new Map<string, number>();
   private readonly snapshots = new Map<string, PortfolioSnapshot>();
   private readonly idempotency = new Map<string, PortfolioSnapshot>();
+  private readonly entries = new Map<string, LedgerEntry>();
+  private readonly reversals = new Set<string>();
+  private readonly reversalIdempotency = new Map<string, LedgerEntry>();
 
   constructor(initialVersion = 0) {
     if (!Number.isInteger(initialVersion) || initialVersion < 0) throw new Error('invalid initial ledger version');
@@ -95,6 +109,7 @@ export class PortfolioLedger {
       contentHash: sha256(snapshotWithoutHash),
     };
     this.versions.set(command.portfolioId, nextVersion);
+    this.entries.set(`ledger-entry-${snapshot.snapshotId}`, { entryId: `ledger-entry-${snapshot.snapshotId}`, portfolioId: command.portfolioId, type: 'OPENING', amount: command.cash, occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason });
     this.snapshots.set(snapshot.snapshotId, snapshot);
     this.idempotency.set(command.idempotencyKey, snapshot);
     return snapshot;
@@ -102,6 +117,23 @@ export class PortfolioLedger {
 
   latest(portfolioId: string): PortfolioSnapshot | undefined {
     return [...this.snapshots.values()].filter((snapshot) => snapshot.portfolioId === portfolioId).sort((left, right) => right.ledgerVersion - left.ledgerVersion)[0];
+  }
+
+  reverse(command: ReversalCommand): LedgerEntry {
+    const repeated = this.reversalIdempotency.get(`${command.portfolioId}:${command.idempotencyKey}`);
+    if (repeated) return repeated;
+    const original = this.entries.get(command.originalEntryId);
+    if (!original || original.portfolioId !== command.portfolioId) throw new Error('original ledger entry not found');
+    if (this.reversals.has(command.originalEntryId)) throw new Error('ledger entry already reversed');
+    const currentVersion = this.versions.get(command.portfolioId) ?? this.defaultVersion;
+    if (command.expectedVersion !== currentVersion) throw new Error('ledger version conflict');
+    if (!command.sourceRef || !command.actorId || !command.reason || !command.idempotencyKey) throw new Error('required reversal field is missing');
+    const entry: LedgerEntry = { entryId: `reversal-${command.originalEntryId}-${currentVersion + 1}`, portfolioId: command.portfolioId, type: 'REVERSAL', amount: negateDecimal(original.amount), occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason };
+    this.reversals.add(command.originalEntryId);
+    this.entries.set(entry.entryId, entry);
+    this.reversalIdempotency.set(`${command.portfolioId}:${command.idempotencyKey}`, entry);
+    this.versions.set(command.portfolioId, currentVersion + 1);
+    return entry;
   }
 }
 
@@ -120,6 +152,7 @@ function validateDecimal(value: string): void {
 function decimalToNumber(value: string): number {
   return Number(value);
 }
+function negateDecimal(value: string): string { return value.startsWith('-') ? value.slice(1) : `-${value}`; }
 
 function sha256(value: object): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
