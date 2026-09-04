@@ -5,11 +5,29 @@ export type ProposalKind = 'HOLD' | 'REBALANCE';
 export interface EvidenceRef { readonly kind: 'quant' | 'strategy' | 'news' | 'regime' | 'portfolio' | 'anomaly'; readonly uri: string; readonly contentHash: string; readonly capturedAt: string; }
 export interface RebalanceLeg { readonly securityId: string; readonly side: 'BUY' | 'SELL'; readonly quantity: string; readonly targetWeight?: string; }
 export interface CreateProposalCommand { readonly proposalId: string; readonly kind: ProposalKind; readonly parentProposalVersion?: number; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly idempotencyKey: string; readonly createdAt: string; }
-export interface TradeProposal { readonly proposalId: string; readonly proposalVersion: number; readonly parentProposalVersion?: number; readonly kind: ProposalKind; readonly state: ProposalState; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly createdAt: string; }
+export interface TradeProposal { readonly proposalId: string; readonly proposalVersion: number; readonly parentProposalVersion?: number; readonly kind: ProposalKind; readonly state: ProposalState; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly createdAt: string; readonly riskReview?: RiskReviewLink; }
+export interface RiskReviewLink { readonly evaluationId: string; readonly policyVersion: string; readonly verdict: 'PASS' | 'REJECT'; readonly reviewedAt: string; }
 
 export class ProposalAggregate {
   private readonly proposals = new Map<string, TradeProposal>();
   private readonly idempotency = new Map<string, TradeProposal>();
+
+  attachRiskReview(proposalId: string, proposalVersion: number, review: RiskReviewLink): TradeProposal {
+    const key = `${proposalId}:${proposalVersion}`; const proposal = this.proposals.get(key);
+    if (!proposal) throw new Error('proposal not found');
+    if (proposal.state !== 'DRAFT' && proposal.state !== 'RISK_REVIEWED') throw new Error('proposal state does not allow risk review');
+    if (!review.evaluationId || !review.policyVersion || !Date.parse(review.reviewedAt)) throw new Error('invalid risk review');
+    const updated: TradeProposal = { ...proposal, state: 'RISK_REVIEWED', riskReview: review };
+    this.proposals.set(key, updated); return updated;
+  }
+
+  markRiskPassed(proposalId: string, proposalVersion: number, evaluationId: string): TradeProposal {
+    const key = `${proposalId}:${proposalVersion}`; const proposal = this.proposals.get(key);
+    if (!proposal || proposal.state !== 'RISK_REVIEWED' || proposal.riskReview?.evaluationId !== evaluationId) throw new Error('risk review does not match proposal');
+    if (proposal.riskReview.verdict !== 'PASS') throw new Error('risk evaluation is not PASS');
+    const updated: TradeProposal = { ...proposal, state: 'RISK_PASSED' };
+    this.proposals.set(key, updated); return updated;
+  }
 
   createDraft(command: CreateProposalCommand): TradeProposal {
     const repeated = this.idempotency.get(command.idempotencyKey);

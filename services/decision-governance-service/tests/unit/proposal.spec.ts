@@ -14,4 +14,12 @@ describe('ProposalAggregate', () => {
     const aggregate = new ProposalAggregate();
     expect(() => aggregate.createDraft({ proposalId: 'p', kind: 'HOLD', legs: [{ securityId: 'x', side: 'BUY', quantity: '1' }], agentRunId: 'r', targetPortfolioVersion: 1, evidence: [], contentHash: 'x', idempotencyKey: 'k', createdAt: '2026-09-04T00:00:00Z' })).toThrow('HOLD');
   });
+
+  it('仅允许匹配的 PASS RiskEvaluation 推进状态', () => {
+    const aggregate = new ProposalAggregate(); const base = { proposalId: 'p-risk', proposalVersion: 1, kind: 'HOLD' as const, state: 'DRAFT' as const, agentRunId: 'run', targetPortfolioVersion: 1, legs: [], evidence: [], createdAt: '2026-09-04T00:00:00Z' }; const command = { ...base, contentHash: hash(base), idempotencyKey: 'risk-key' };
+    aggregate.createDraft(command);
+    expect(() => aggregate.markRiskPassed('p-risk', 1, 'eval-1')).toThrow();
+    aggregate.attachRiskReview('p-risk', 1, { evaluationId: 'eval-1', policyVersion: 'policy-v1', verdict: 'PASS', reviewedAt: '2026-09-04T00:01:00Z' });
+    expect(aggregate.markRiskPassed('p-risk', 1, 'eval-1').state).toBe('RISK_PASSED');
+  });
 });
