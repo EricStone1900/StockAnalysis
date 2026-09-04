@@ -1,0 +1,69 @@
+"""批量快照、Watchlist和5分钟封闭Bar的确定性实现。"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from datetime import UTC, datetime, timedelta
+from typing import Literal
+
+from pydantic import AwareDatetime, BaseModel, Field
+
+
+class Quote(BaseModel):
+    security_id: str
+    timestamp: AwareDatetime
+    price: float = Field(gt=0)
+    volume: float = Field(ge=0)
+    amount: float = Field(ge=0)
+
+
+class ClosedBar(BaseModel):
+    security_id: str
+    window_start: AwareDatetime
+    window_end: AwareDatetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    amount: float
+    quality: Literal["PASS", "WARN", "FAIL"]
+    source_event_ids: list[str]
+
+
+class WatchlistEntry(BaseModel):
+    security_id: str
+    tier: Literal["P0", "P1", "P2"]
+
+
+class Watchlist(BaseModel):
+    version: str
+    entries: list[WatchlistEntry]
+
+    def validate_capacity(self, max_symbols: int = 50) -> None:
+        if len({entry.security_id for entry in self.entries}) > max_symbols:
+            raise ValueError(f"watchlist exceeds {max_symbols} symbols")
+
+
+def aggregate_closed_bars(quotes: list[Quote], now: datetime) -> list[ClosedBar]:
+    if now.tzinfo is None:
+        raise ValueError("now must include timezone")
+    groups: dict[tuple[str, datetime], list[Quote]] = defaultdict(list)
+    for quote in quotes:
+        stamp = quote.timestamp.astimezone(UTC)
+        minute = stamp.replace(second=0, microsecond=0)
+        start = minute - timedelta(minutes=minute.minute % 5)
+        end = start + timedelta(minutes=5)
+        if end <= now.astimezone(UTC):
+            groups[(quote.security_id, start)].append(quote)
+    bars: list[ClosedBar] = []
+    for (security_id, start), values in sorted(groups.items()):
+        ordered = sorted(values, key=lambda value: value.timestamp)
+        prices = [value.price for value in ordered]
+        bars.append(ClosedBar(
+            security_id=security_id, window_start=start, window_end=start + timedelta(minutes=5),
+            open=prices[0], high=max(prices), low=min(prices), close=prices[-1],
+            volume=sum(value.volume for value in ordered), amount=sum(value.amount for value in ordered),
+            quality="PASS", source_event_ids=[f"quote:{value.timestamp.isoformat()}" for value in ordered],
+        ))
+    return bars
