@@ -175,6 +175,27 @@ services:
       timeout: 3s
       retries: 20
 
+  news-intelligence-service:
+    build:
+      context: ../..
+      dockerfile: services/news-intelligence-service/Dockerfile
+    environment:
+      NEWS_INTELLIGENCE_DATABASE_URL: ${NEWS_INTELLIGENCE_DATABASE_URL:?set NEWS_INTELLIGENCE_DATABASE_URL before starting news}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_root_password
+      ARTIFACT_BUCKET: artifacts
+    secrets: [minio_root_password]
+    depends_on:
+      postgres: { condition: service_healthy }
+      minio: { condition: service_started }
+    ports: ["3005:3000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:3000/ready')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }
