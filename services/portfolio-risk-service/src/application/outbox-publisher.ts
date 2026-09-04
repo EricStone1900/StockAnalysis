@@ -16,7 +16,8 @@ export interface JetStreamConnection { jetstream(): { publish(subject: string, p
 export class NatsJetStreamPublisher implements EventPublisher {
   public constructor(private readonly connection: JetStreamConnection) {}
   public async publish(event: OutboxEventRecord): Promise<void> {
-    await this.connection.jetstream().publish(event.subject, new TextEncoder().encode(JSON.stringify({ eventId: event.eventId, aggregateId: event.aggregateId, ...event.payload })));
+    // Outbox payload 已保存完整 DomainEventEnvelope；不得在发布时丢失 schema、时间和 correlationId。
+    await this.connection.jetstream().publish(event.subject, new TextEncoder().encode(JSON.stringify(event.payload)));
   }
 }
 
