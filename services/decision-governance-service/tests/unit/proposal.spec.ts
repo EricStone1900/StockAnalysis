@@ -22,4 +22,17 @@ describe('ProposalAggregate', () => {
     aggregate.attachRiskReview('p-risk', 1, { evaluationId: 'eval-1', policyVersion: 'policy-v1', verdict: 'PASS', reviewedAt: '2026-09-04T00:01:00Z' });
     expect(aggregate.markRiskPassed('p-risk', 1, 'eval-1').state).toBe('RISK_PASSED');
   });
+
+  it('修订生成新版本且不复用旧复核和审批', () => {
+    const aggregate = new ProposalAggregate();
+    const firstBase = { proposalId: 'p-revise', proposalVersion: 1, kind: 'HOLD' as const, state: 'DRAFT' as const, agentRunId: 'run', targetPortfolioVersion: 1, legs: [], evidence: [], createdAt: '2026-09-04T00:00:00Z' };
+    aggregate.createDraft({ ...firstBase, contentHash: hash(firstBase), idempotencyKey: 'rev-1' });
+    aggregate.attachRiskReview('p-revise', 1, { evaluationId: 'eval-1', policyVersion: 'policy-v1', verdict: 'PASS', reviewedAt: '2026-09-04T00:01:00Z' });
+    aggregate.markRiskPassed('p-revise', 1, 'eval-1');
+    const secondBase = { proposalId: 'p-revise', proposalVersion: 2, parentProposalVersion: 1, kind: 'HOLD' as const, state: 'DRAFT' as const, agentRunId: 'run-2', targetPortfolioVersion: 1, legs: [], evidence: [], createdAt: '2026-09-04T00:00:00Z' };
+    const second = aggregate.createDraft({ ...secondBase, contentHash: hash(secondBase), idempotencyKey: 'rev-2' });
+    expect(second).toMatchObject({ proposalVersion: 2, parentProposalVersion: 1, state: 'DRAFT' });
+    expect(second.riskReview).toBeUndefined();
+    expect(aggregate.get('p-revise', 1)?.state).toBe('RISK_PASSED');
+  });
 });
