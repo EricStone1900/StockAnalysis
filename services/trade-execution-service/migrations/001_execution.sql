@@ -23,3 +23,12 @@ CREATE TABLE IF NOT EXISTS order_intents (
   payload JSONB NOT NULL,
   UNIQUE (rebalance_batch_id, leg_id)
 );
+CREATE TABLE IF NOT EXISTS execution_fills (
+  fill_id TEXT PRIMARY KEY,
+  intent_id TEXT NOT NULL REFERENCES order_intents(intent_id),
+  filled_quantity TEXT NOT NULL,
+  fill_price TEXT NOT NULL,
+  occurred_at TIMESTAMPTZ NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  payload JSONB NOT NULL
+);
