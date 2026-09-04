@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS decision_budget_reservations (
   proposal_id TEXT NOT NULL,
   reason TEXT NOT NULL,
   batch_number INTEGER NOT NULL CHECK (batch_number >= 0),
-  status TEXT NOT NULL CHECK (status IN ('RESERVED', 'RELEASED')),
+  status TEXT NOT NULL CHECK (status IN ('RESERVED', 'DISPATCHING', 'CONSUMED', 'RELEASED')),
   idempotency_key TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
