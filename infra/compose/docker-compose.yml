@@ -141,6 +141,40 @@ services:
       timeout: 3s
       retries: 20
 
+  decision-governance-service:
+    build:
+      context: ../..
+      dockerfile: services/decision-governance-service/Dockerfile
+    environment:
+      DECISION_GOVERNANCE_DATABASE_URL: ${DECISION_GOVERNANCE_DATABASE_URL:?set DECISION_GOVERNANCE_DATABASE_URL before starting governance}
+      NATS_URL: nats://nats:4222
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_started }
+    ports: ["3003:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  trade-execution-service:
+    build:
+      context: ../..
+      dockerfile: services/trade-execution-service/Dockerfile
+    environment:
+      TRADE_EXECUTION_DATABASE_URL: ${TRADE_EXECUTION_DATABASE_URL:?set TRADE_EXECUTION_DATABASE_URL before starting execution}
+      NATS_URL: nats://nats:4222
+    depends_on:
+      postgres: { condition: service_healthy }
+      nats: { condition: service_started }
+    ports: ["3004:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }
