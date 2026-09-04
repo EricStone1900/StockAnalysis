@@ -7,7 +7,7 @@ const base = { proposalId: 'p-1', proposalVersion: 1, kind: 'HOLD' as const, sta
 describe('ProposalController', () => {
   it('创建并读取 DRAFT Proposal', async () => {
     const controller = new ProposalController(); const command = { ...base, contentHash: createHash('sha256').update(JSON.stringify(base)).digest('hex'), idempotencyKey: 'key-1' };
-    const created = controller.create(command); expect(created.state).toBe('DRAFT'); expect(controller.get('p-1')).toEqual(created);
+    const created = await controller.create(command); expect(created.state).toBe('DRAFT'); await expect(controller.get('p-1')).resolves.toEqual(created);
   });
-  it('映射非法请求和不存在 Proposal', () => { const controller = new ProposalController(); expect(() => controller.create({ ...base, contentHash: 'bad', idempotencyKey: 'key-2' })).toThrow(BadRequestException); expect(() => controller.get('missing')).toThrow(NotFoundException); });
+  it('映射非法请求和不存在 Proposal', async () => { const controller = new ProposalController(); await expect(controller.create({ ...base, contentHash: 'bad', idempotencyKey: 'key-2' })).rejects.toBeInstanceOf(BadRequestException); await expect(controller.get('missing')).rejects.toBeInstanceOf(NotFoundException); });
 });
