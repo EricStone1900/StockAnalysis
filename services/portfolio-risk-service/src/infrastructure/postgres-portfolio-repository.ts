@@ -1,6 +1,7 @@
 import type { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 import type { PortfolioValuation } from '../domain/valuation.js';
 import type { RiskEvaluation } from '../domain/risk-policy.js';
+import { randomUUID } from 'node:crypto';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -164,12 +165,14 @@ export class PostgresPortfolioRepository {
   }
 
   async appendRiskEvaluation(evaluation: RiskEvaluation, portfolioId: string): Promise<void> {
-    await this.client.query(
-      `INSERT INTO portfolio_risk_evaluations (evaluation_id, portfolio_id, proposal_id, policy_version, verdict, payload, content_hash)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
-       ON CONFLICT (portfolio_id, proposal_id, policy_version) DO NOTHING`,
-      [evaluation.evaluationId, portfolioId, evaluation.proposalId, evaluation.policyVersion, evaluation.verdict, JSON.stringify(evaluation), evaluation.evaluationId],
-    );
+    const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
+    await connection.query('BEGIN');
+    try {
+      const inserted = await connection.query(`INSERT INTO portfolio_risk_evaluations (evaluation_id, portfolio_id, proposal_id, policy_version, verdict, payload, content_hash) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (portfolio_id, proposal_id, policy_version) DO NOTHING RETURNING evaluation_id`, [evaluation.evaluationId, portfolioId, evaluation.proposalId, evaluation.policyVersion, evaluation.verdict, JSON.stringify(evaluation), evaluation.evaluationId]);
+      if (inserted.rows.length > 0) await connection.query(`INSERT INTO portfolio_outbox_events (event_id, subject, aggregate_id, payload, available_at) VALUES ($1, $2, $3, $4::jsonb, $5) ON CONFLICT (event_id) DO NOTHING`, [randomUUID(), 'stock.portfolio-risk.risk-evaluation.created.v1', portfolioId, JSON.stringify({ evaluation }), new Date().toISOString()]);
+      await connection.query('COMMIT');
+    } catch (error) { await connection.query('ROLLBACK'); throw error; }
+    finally { connection.release?.(); }
   }
 }
 

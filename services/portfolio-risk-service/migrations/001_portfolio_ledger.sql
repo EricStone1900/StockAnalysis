@@ -81,3 +81,14 @@ CREATE TABLE IF NOT EXISTS portfolio_risk_evaluations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (portfolio_id, proposal_id, policy_version)
 );
+
+CREATE TABLE IF NOT EXISTS portfolio_outbox_events (
+  event_id TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  aggregate_id TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  available_at TIMESTAMPTZ NOT NULL,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS portfolio_outbox_pending_idx ON portfolio_outbox_events (available_at) WHERE published_at IS NULL;

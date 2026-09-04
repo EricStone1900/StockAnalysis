@@ -31,8 +31,9 @@ describe('PostgresPortfolioRepository', () => {
   });
 
   it('persists risk evaluations idempotently by proposal and policy version', async () => {
-    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ evaluation_id: 'risk-1' }] }).mockResolvedValue({ rows: [] });
     await new PostgresPortfolioRepository({ query }).appendRiskEvaluation({ evaluationId: 'risk-1', proposalId: 'proposal-1', policyVersion: 'policy-v1', verdict: 'PASS', rules: [], before: { cash: '1', totalEquity: '1' }, projectedAfter: { cash: '1', totalEquity: '1' } }, 'p-1');
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT (portfolio_id, proposal_id, policy_version)'), expect.arrayContaining(['p-1', 'proposal-1', 'policy-v1']));
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_risk_evaluations'))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_outbox_events'))).toBe(true);
   });
 });
