@@ -1,6 +1,6 @@
 import pytest
 
-from src.regime import FeatureInput, RegimeDefinition, classify
+from src.regime import FeatureInput, RegimeDefinition, RegimeStateMachine, classify
 
 
 def features(**changes: object) -> FeatureInput:
@@ -18,3 +18,14 @@ def test_classification_is_deterministic_and_versioned() -> None:
 def test_fail_quality_does_not_publish_regime() -> None:
     with pytest.raises(ValueError, match="FAIL"):
         classify(features(quality="FAIL"), RegimeDefinition(version="r1"))
+
+
+def test_state_machine_holds_short_transition_and_marks_failure_stale() -> None:
+    definition = RegimeDefinition(version="r1")
+    machine = RegimeStateMachine(minimum_duration_minutes=30)
+    first = machine.evaluate(features(), definition)
+    changed = features(as_of="2026-09-04T00:10:00Z", dimensions={"trend": -0.8, "breadth": 0.1, "volatility": 0.2, "liquidity": 0.2})
+    assert machine.evaluate(changed, definition).snapshot_id == first.snapshot_id
+    stale = machine.evaluate(features(as_of="2026-09-04T01:00:00Z", quality="FAIL"), definition)
+    assert stale.freshness == "STALE"
+    assert stale.quality == "FAIL"

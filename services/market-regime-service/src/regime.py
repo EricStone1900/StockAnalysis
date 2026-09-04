@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, Field
@@ -61,3 +62,25 @@ def classify(features: FeatureInput, definition: RegimeDefinition) -> MarketRegi
         feature_version=features.feature_version, regime_definition_version=definition.version,
         freshness="FRESH", quality=features.quality, evidence_ids=features.evidence_ids,
     )
+
+
+class RegimeStateMachine:
+    def __init__(self, minimum_duration_minutes: int = 30) -> None:
+        self._minimum_duration = timedelta(minutes=minimum_duration_minutes)
+        self._current: MarketRegimeSnapshot | None = None
+
+    def evaluate(self, features: FeatureInput, definition: RegimeDefinition) -> MarketRegimeSnapshot:
+        if features.quality == "FAIL":
+            if self._current is None:
+                raise ValueError("feature quality FAIL without previous snapshot")
+            return self._current.model_copy(update={"freshness": "STALE", "quality": "FAIL"})
+        candidate = classify(features, definition)
+        if (
+            self._current is not None
+            and candidate.overall_regime != self._current.overall_regime
+            and candidate.as_of - self._current.as_of < self._minimum_duration
+            and candidate.overall_regime != "STRESS"
+        ):
+            return self._current
+        self._current = candidate
+        return candidate
