@@ -10,6 +10,8 @@
 
 估值领域切片已支持以`marketDataVersion`、价格`asOf`和持仓快照版本计算持仓市值与总权益；任一持仓缺价、价格非正或超过最大允许陈旧时间均失败关闭。估值结果已落入不可变`portfolio_valuations`，以快照、行情版本和时间唯一约束防止重复。已在`packages/contracts/openapi/market-data.v1.yaml`冻结价格查询契约，market-data 已提供按版本和日期精确查询的只读端点。`@stock/contracts`现在通过生成脚本输出`GeneratedMarketDataClient`，组合服务使用`GeneratedMarketPriceReader`适配器校验证券和数据版本；真实 Artifact 索引接入仍待完成。
 
+`RiskPolicy`与`evaluateRisk`领域切片已完成：一次评估完整Leg集合，统一检查全局暂停、每日调仓批次、第二批原因、最低现金、换手、回撤、单股仓位和总仓位；任一规则失败即整体`REJECT`，并返回带`policyVersion`、实际值、限制值和原因码的逐规则结果。
+
 ## 实施步骤
 
 1. 实现成交入账、现金、费用、公司行动、估值和不可变PortfolioSnapshot。
