@@ -10,6 +10,16 @@ export interface EventPublisher {
   publish(event: OutboxEventRecord): Promise<void>;
 }
 
+export interface JetStreamConnection { jetstream(): { publish(subject: string, payload: Uint8Array): Promise<unknown> } }
+
+/** NATS JetStream 适配器不绑定具体客户端依赖，由组合根注入连接。 */
+export class NatsJetStreamPublisher implements EventPublisher {
+  public constructor(private readonly connection: JetStreamConnection) {}
+  public async publish(event: OutboxEventRecord): Promise<void> {
+    await this.connection.jetstream().publish(event.subject, new TextEncoder().encode(JSON.stringify({ eventId: event.eventId, aggregateId: event.aggregateId, ...event.payload })));
+  }
+}
+
 export interface PublishBatchResult { readonly claimed: number; readonly published: number; readonly failed: number; }
 
 /** 单次发布批次；失败事件不确认，由租约到期后再次领取。 */
