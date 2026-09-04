@@ -8,3 +8,11 @@
 - [ ] ruptures/River保持研究或Shadow边界。
 - [ ] Agent和Risk只能读取，不能改写Regime。
 
+## 当前实现证据
+
+- 已实现提交：`5f5992b`、`c5fa7e0`，并加入 Compose 部署配置。
+- Mac 本机测试4项通过，Ruff、Mypy、`git diff --check`通过。
+- 已覆盖四维状态分类、版本化定义、失败关闭、STALE旧快照、最短持续窗口和状态抖动抑制。
+- 尚待人工验收历史回放、PIT/行业分类、容器启动、跨服务只读权限及 Ubuntu 恢复演练。
+
+人工项目完成前不得标记阶段PASS。

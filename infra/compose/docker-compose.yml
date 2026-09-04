@@ -207,6 +207,17 @@ services:
       timeout: 3s
       retries: 20
 
+  market-regime-service:
+    build:
+      context: ../..
+      dockerfile: services/market-regime-service/Dockerfile
+    ports: ["3007:3000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:3000/live')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }
