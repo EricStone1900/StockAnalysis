@@ -4,7 +4,7 @@
 
 已完成成交入账的领域最小切片：`BUY`、`SELL` 与独立 `FEE` 流水均不可变，使用最多 8 位小数的定点 Decimal 运算计算现金和持仓；卖超可用持仓会拒绝。成交必须以既有期初快照为基础，并继续使用 `expectedVersion` 与幂等键。
 
-当前尚未将成交流水持久化到 PostgreSQL 或暴露确认成交 API；公司行动、行情估值、风险策略、市场数据生成 Client、Outbox 事件仍属于本阶段后续步骤。
+已将确认成交以单一 PostgreSQL 事务写入：成交、可选费用、下一版快照与快照幂等记录要么全部提交、要么全部回滚；内部接口为`POST /internal/v1/reconciliation/apply-confirmed-fill`。公司行动、行情估值、风险策略、市场数据生成 Client、Outbox 事件仍属于本阶段后续步骤。
 
 ## 实施步骤
 

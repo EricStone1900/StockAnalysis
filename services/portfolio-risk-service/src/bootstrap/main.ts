@@ -5,7 +5,7 @@ import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
-import { OpeningSnapshotCommand, PortfolioLedger, ReversalCommand } from '../domain/portfolio.js';
+import { ConfirmedFillCommand, OpeningSnapshotCommand, PortfolioLedger, ReversalCommand } from '../domain/portfolio.js';
 import { PortfolioService } from '../application/portfolio-service.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
@@ -28,7 +28,7 @@ class DatabaseLifecycle implements OnApplicationShutdown {
 }
 @Controller('/api/v1/portfolios')
 export class PortfolioController {
-  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = createPortfolioService()) {}
+  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = portfolioService) {}
 
   @Post(':portfolioId/manual-snapshots')
   async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
@@ -66,13 +66,32 @@ export class PortfolioController {
     }
   }
 }
+@Controller('/internal/v1/reconciliation')
+export class ReconciliationController {
+  constructor(private readonly service: Pick<PortfolioService, 'recordConfirmedFill'> = portfolioService) {}
+
+  @Post('apply-confirmed-fill')
+  async applyConfirmedFill(@Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: ConfirmedFillCommand) {
+    try {
+      if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
+      if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
+      if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
+      return await this.service.recordConfirmedFill({ ...body, correlationId });
+    } catch (error) {
+      if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
+      if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'invalid confirmed fill');
+    }
+  }
+}
 function createPortfolioService(): PortfolioService {
   const databaseUrl = process.env.PORTFOLIO_DATABASE_URL;
   if (!databaseUrl) return new PortfolioService(new PortfolioLedger());
   return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(databasePool ?? new Pool({ connectionString: databaseUrl, max: 5 })));
 }
+const portfolioService = createPortfolioService();
 export class AppModule {}
-Module({ controllers: [HealthController, PortfolioController], providers: [DatabaseLifecycle] })(AppModule);
+Module({ controllers: [HealthController, PortfolioController, ReconciliationController], providers: [DatabaseLifecycle] })(AppModule);
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   await migratePortfolioDatabase();

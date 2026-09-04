@@ -33,6 +33,14 @@
 `occurredAt`、`availableAt`、`sourceRef`、`actorId`、`reason`、`expectedVersion` 和 `idempotencyKey`；请求头
 `Idempotency-Key` 必须与 body 一致。原流水不会被修改，重复冲正返回 `400`，版本冲突返回 `409`。
 
+## 确认成交入账（内部）
+
+`POST /internal/v1/reconciliation/apply-confirmed-fill` 仅接受人工确认或券商确认的成交。请求需携带
+`portfolioId`、`securityId`、`side`（`BUY`或`SELL`）、`quantity`、`price`、`fee`、时间、来源、审计字段、
+`expectedVersion`及`idempotencyKey`，并要求 `Idempotency-Key`、`X-Actor-Id` 和 `X-Correlation-Id` 请求头。
+
+同一请求原子生成成交流水、可选费用流水与新快照；卖超可用持仓返回 `400`，版本过期返回 `409`。本阶段不接受未经确认的成交或订单指令。
+
 ## 错误与幂等
 
 - `400`：字段缺失、格式错误或数量非正数。

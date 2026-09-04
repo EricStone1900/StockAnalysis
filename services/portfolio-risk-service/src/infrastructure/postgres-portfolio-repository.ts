@@ -1,4 +1,4 @@
-import type { LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
+import type { ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -78,4 +78,40 @@ export class PostgresPortfolioRepository {
       [entry.entryId, entry.portfolioId, entry.amount, entry.occurredAt, entry.availableAt, entry.sourceRef, entry.actorId, entry.reason, command.originalEntryId, command.idempotencyKey, command.correlationId],
     );
   }
+
+  async appendConfirmedFill(command: ConfirmedFillCommand, snapshot: PortfolioSnapshot): Promise<void> {
+    const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
+    const entryId = `ledger-entry-${command.portfolioId}-${snapshot.ledgerVersion}`;
+    await connection.query('BEGIN');
+    try {
+      await connection.query(
+        `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [entryId, command.portfolioId, command.side, command.securityId, command.quantity, multiplyDecimalForRepository(command.quantity, command.price), command.occurredAt, command.availableAt, command.sourceRef, command.actorId, command.reason, command.idempotencyKey, command.correlationId],
+      );
+      if (command.fee !== '0') await connection.query(
+        `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason, correlation_id)
+         VALUES ($1, $2, 'FEE', $3, $4, $5, $6, $7, $8, $9)`,
+        [`fee-${entryId}`, command.portfolioId, `-${command.fee}`, command.occurredAt, command.availableAt, command.sourceRef, command.actorId, command.reason, command.correlationId],
+      );
+      await connection.query(
+        `INSERT INTO portfolio_snapshots (snapshot_id, portfolio_id, account_id, as_of, cash, positions, ledger_version, source_ref, content_hash, payload)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10::jsonb)`,
+        [snapshot.snapshotId, snapshot.portfolioId, snapshot.accountId, snapshot.asOf, snapshot.cash, JSON.stringify(snapshot.positions), snapshot.ledgerVersion, snapshot.sourceRef, snapshot.contentHash, JSON.stringify(snapshot)],
+      );
+      await connection.query(
+        `INSERT INTO portfolio_snapshot_idempotency (portfolio_id, idempotency_key, snapshot_id, payload) VALUES ($1, $2, $3, $4::jsonb)`,
+        [command.portfolioId, command.idempotencyKey, snapshot.snapshotId, JSON.stringify(snapshot)],
+      );
+      await connection.query('COMMIT');
+    } catch (error) { await connection.query('ROLLBACK'); throw error; }
+    finally { connection.release?.(); }
+  }
+}
+
+function multiplyDecimalForRepository(left: string, right: string): string {
+  const scale = 100_000_000n;
+  const parse = (value: string) => { const [whole, fraction = ''] = value.split('.'); return BigInt(whole) * scale + BigInt((fraction + '00000000').slice(0, 8)); };
+  const result = (parse(left) * parse(right)) / scale; const whole = result / scale; const fraction = (result % scale).toString().padStart(8, '0').replace(/0+$/, '');
+  return `${whole}${fraction ? `.${fraction}` : ''}`;
 }

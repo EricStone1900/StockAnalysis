@@ -6,6 +6,7 @@ interface PortfolioPersistence {
   findReversalByIdempotency?(portfolioId: string, key: string): Promise<LedgerEntry | undefined>;
   appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
+  appendConfirmedFill?(command: ConfirmedFillCommand, snapshot: PortfolioSnapshot): Promise<void>;
 }
 
 export class PortfolioService {
@@ -59,7 +60,25 @@ export class PortfolioService {
   }
 
   async recordConfirmedFill(command: ConfirmedFillCommand): Promise<PortfolioSnapshot> {
-    return this.ledger.recordConfirmedFill(command);
+    if (this.repository) {
+      const repeated = await this.repository.findByIdempotency(command.portfolioId, command.idempotencyKey);
+      if (repeated) return repeated;
+      const latest = await this.repository.latest(command.portfolioId);
+      if (latest) this.ledger.restoreSnapshot(latest);
+    }
+    const snapshot = this.ledger.recordConfirmedFill(command);
+    if (this.repository?.appendConfirmedFill) {
+      try { await this.repository.appendConfirmedFill(command, snapshot); }
+      catch (error) {
+        if (isUniqueViolation(error)) {
+          const repeated = await readIdempotentWithRetry(this.repository, command.portfolioId, command.idempotencyKey);
+          if (repeated) return repeated;
+          throw new Error('ledger version conflict');
+        }
+        throw error;
+      }
+    }
+    return snapshot;
   }
 }
 

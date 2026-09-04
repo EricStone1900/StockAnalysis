@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -52,5 +52,17 @@ suite('PostgreSQL portfolio persistence', () => {
     const results = await Promise.allSettled([left.importOpening({ ...base, idempotencyKey: 'lock-left' }), right.importOpening({ ...base, idempotencyKey: 'lock-right' })]);
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+  });
+
+  it('atomically persists a confirmed fill, fee and derived snapshot', async () => {
+    const fillPortfolioId = `${portfolioId}-fill`;
+    const repository = new PostgresPortfolioRepository(pool);
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await service.importOpening({ ...command, portfolioId: fillPortfolioId, cash: '1000', positions: [], idempotencyKey: 'fill-opening' });
+    const snapshot = await service.recordConfirmedFill({ portfolioId: fillPortfolioId, securityId: 'SSE:600000', side: 'BUY', quantity: '10', price: '12.34', fee: '0.50', occurredAt: '2026-09-03T02:00:00Z', availableAt: '2026-09-03T02:00:00Z', sourceRef: 'fill-test', actorId: 'test', reason: 'confirmed', expectedVersion: 1, idempotencyKey: 'fill-1' });
+    expect(snapshot).toMatchObject({ cash: '876.1', ledgerVersion: 2 });
+    await expect(repository.latest(fillPortfolioId)).resolves.toEqual(snapshot);
+    const count = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM portfolio_ledger_entries WHERE portfolio_id = $1', [fillPortfolioId]);
+    expect(count.rows[0]?.count).toBe('3');
   });
 });
