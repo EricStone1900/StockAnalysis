@@ -1,0 +1,2 @@
+import { ApprovedExecutionCommand, ExecutionAggregate, OrderIntent, OrderIntentStatus, RebalanceBatch } from '../domain/execution.js';
+export class ExecutionService { public constructor(private readonly aggregate = new ExecutionAggregate()) {} public createBatch(command: ApprovedExecutionCommand): RebalanceBatch { return this.aggregate.createApprovedBatch(command); } public transitionIntent(batchId: string, intentId: string, status: OrderIntentStatus): OrderIntent { return this.aggregate.transitionIntent(batchId, intentId, status); } }
