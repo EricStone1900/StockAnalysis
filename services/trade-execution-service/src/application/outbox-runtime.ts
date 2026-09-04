@@ -1,0 +1,4 @@
+import type { ExecutionOutboxRecord } from './outbox-worker.js';
+export interface ExecutionJetStreamConnection { jetstream(): { publish(subject: string, payload: Uint8Array): Promise<unknown> } }
+export class ExecutionNatsPublisher { public constructor(private readonly connection: ExecutionJetStreamConnection) {} public async publish(event: ExecutionOutboxRecord): Promise<void> { await this.connection.jetstream().publish(event.subject, new TextEncoder().encode(JSON.stringify({ eventId: event.eventId, aggregateId: event.aggregateId, ...event.payload }))); } }
+export class ExecutionWorkerLifecycle { public constructor(private readonly worker?: { start(): void; stop(): void }) {} public onApplicationBootstrap(): void { this.worker?.start(); } public onApplicationShutdown(): void { this.worker?.stop(); } }
