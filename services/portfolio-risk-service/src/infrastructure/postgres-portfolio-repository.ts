@@ -1,4 +1,4 @@
-import type { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
+import type { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -118,6 +118,28 @@ export class PostgresPortfolioRepository {
         `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
          VALUES ($1, $2, 'DIVIDEND', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
         [`dividend-${command.portfolioId}-${snapshot.ledgerVersion}`, command.portfolioId, command.securityId, position.quantity, multiplyDecimalForRepository(position.quantity, command.cashPerShare), command.occurredAt, command.availableAt, command.sourceRef, command.actorId, command.reason, command.idempotencyKey, command.correlationId],
+      );
+      await connection.query(
+        `INSERT INTO portfolio_snapshots (snapshot_id, portfolio_id, account_id, as_of, cash, positions, ledger_version, source_ref, content_hash, payload)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10::jsonb)`,
+        [snapshot.snapshotId, snapshot.portfolioId, snapshot.accountId, snapshot.asOf, snapshot.cash, JSON.stringify(snapshot.positions), snapshot.ledgerVersion, snapshot.sourceRef, snapshot.contentHash, JSON.stringify(snapshot)],
+      );
+      await connection.query(`INSERT INTO portfolio_snapshot_idempotency (portfolio_id, idempotency_key, snapshot_id, payload) VALUES ($1, $2, $3, $4::jsonb)`, [command.portfolioId, command.idempotencyKey, snapshot.snapshotId, JSON.stringify(snapshot)]);
+      await connection.query('COMMIT');
+    } catch (error) { await connection.query('ROLLBACK'); throw error; }
+    finally { connection.release?.(); }
+  }
+
+  async appendStockSplit(command: StockSplitCommand, snapshot: PortfolioSnapshot): Promise<void> {
+    const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
+    const position = snapshot.positions.find((item) => item.securityId === command.securityId);
+    if (!position) throw new Error('stock split position is missing from snapshot');
+    await connection.query('BEGIN');
+    try {
+      await connection.query(
+        `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
+         VALUES ($1, $2, 'SPLIT', $3, $4, '0', $5, $6, $7, $8, $9, $10, $11)`,
+        [`split-${command.portfolioId}-${snapshot.ledgerVersion}`, command.portfolioId, command.securityId, position.quantity, command.occurredAt, command.availableAt, command.sourceRef, command.actorId, command.reason, command.idempotencyKey, command.correlationId],
       );
       await connection.query(
         `INSERT INTO portfolio_snapshots (snapshot_id, portfolio_id, account_id, as_of, cash, positions, ledger_version, source_ref, content_hash, payload)

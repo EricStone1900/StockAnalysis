@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS portfolio_ledger_entries (
   entry_id TEXT PRIMARY KEY,
   portfolio_id TEXT NOT NULL,
-  entry_type TEXT NOT NULL CHECK (entry_type IN ('OPENING', 'BUY', 'SELL', 'FEE', 'DIVIDEND', 'REVERSAL')),
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('OPENING', 'BUY', 'SELL', 'FEE', 'DIVIDEND', 'SPLIT', 'REVERSAL')),
   security_id TEXT,
   quantity TEXT CHECK (quantity IS NULL OR quantity ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
   amount TEXT NOT NULL CHECK (amount ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
@@ -20,6 +20,8 @@ ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS security_id TEXT;
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS quantity TEXT;
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 ALTER TABLE portfolio_ledger_entries ADD COLUMN IF NOT EXISTS correlation_id TEXT;
+ALTER TABLE portfolio_ledger_entries DROP CONSTRAINT IF EXISTS portfolio_ledger_entries_entry_type_check;
+ALTER TABLE portfolio_ledger_entries ADD CONSTRAINT portfolio_ledger_entries_entry_type_check CHECK (entry_type IN ('OPENING', 'BUY', 'SELL', 'FEE', 'DIVIDEND', 'SPLIT', 'REVERSAL'));
 CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_one_reversal_idx ON portfolio_ledger_entries (reversal_of_entry_id) WHERE reversal_of_entry_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS portfolio_ledger_idempotency_idx ON portfolio_ledger_entries (portfolio_id, idempotency_key) WHERE idempotency_key IS NOT NULL;
 

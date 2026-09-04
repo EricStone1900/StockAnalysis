@@ -5,7 +5,7 @@ import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
-import { CashDividendCommand, ConfirmedFillCommand, OpeningSnapshotCommand, PortfolioLedger, ReversalCommand } from '../domain/portfolio.js';
+import { CashDividendCommand, ConfirmedFillCommand, OpeningSnapshotCommand, PortfolioLedger, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 import { PortfolioService } from '../application/portfolio-service.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
@@ -68,7 +68,7 @@ export class PortfolioController {
 }
 @Controller('/internal/v1/reconciliation')
 export class ReconciliationController {
-  constructor(private readonly service: Pick<PortfolioService, 'recordConfirmedFill' | 'recordCashDividend'> = portfolioService) {}
+  constructor(private readonly service: Pick<PortfolioService, 'recordConfirmedFill' | 'recordCashDividend' | 'recordStockSplit'> = portfolioService) {}
 
   @Post('apply-confirmed-fill')
   async applyConfirmedFill(@Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: ConfirmedFillCommand) {
@@ -95,6 +95,20 @@ export class ReconciliationController {
       if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
       if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
       throw new BadRequestException(error instanceof Error ? error.message : 'invalid cash dividend');
+    }
+  }
+
+  @Post('apply-stock-split')
+  async applyStockSplit(@Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: StockSplitCommand) {
+    try {
+      if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey');
+      if (!actorId || actorId !== body.actorId) throw new ForbiddenException('X-Actor-Id must match body.actorId');
+      if (!correlationId) throw new BadRequestException('X-Correlation-Id is required');
+      return await this.service.recordStockSplit({ ...body, correlationId });
+    } catch (error) {
+      if (error instanceof ForbiddenException || error instanceof ConflictException || error instanceof BadRequestException) throw error;
+      if (error instanceof Error && error.message === 'ledger version conflict') throw new ConflictException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'invalid stock split');
     }
   }
 }

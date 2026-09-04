@@ -45,6 +45,10 @@
 
 `POST /internal/v1/reconciliation/apply-cash-dividend` 接收已确认的现金分红：`portfolioId`、`securityId`、`cashPerShare`、时间、来源、审计字段、`expectedVersion` 和 `idempotencyKey`。系统以当前持仓数量计算分红金额，原子写入 `DIVIDEND` 流水和新版快照；无该证券持仓返回 `400`。拆股、送股等数量变化操作尚未开放。
 
+## 拆股或送股比例调整（内部）
+
+`POST /internal/v1/reconciliation/apply-stock-split` 接收 `portfolioId`、`securityId`、正整数 `numerator`/`denominator`、时间、来源、审计字段、`expectedVersion` 和 `idempotencyKey`。它按比例调整该证券数量和可用数量，现金保持不变，并原子写入 `SPLIT` 流水与新版快照。
+
 ## 错误与幂等
 
 - `400`：字段缺失、格式错误或数量非正数。

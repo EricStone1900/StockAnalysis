@@ -8,6 +8,7 @@ interface PortfolioPersistence {
   appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
   appendConfirmedFill?(command: ConfirmedFillCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendCashDividend?(command: CashDividendCommand, snapshot: PortfolioSnapshot): Promise<void>;
+  appendStockSplit?(command: StockSplitCommand, snapshot: PortfolioSnapshot): Promise<void>;
 }
 
 export class PortfolioService {
@@ -105,7 +106,25 @@ export class PortfolioService {
   }
 
   async recordStockSplit(command: StockSplitCommand): Promise<PortfolioSnapshot> {
-    return this.ledger.recordStockSplit(command);
+    if (this.repository) {
+      const repeated = await this.repository.findByIdempotency(command.portfolioId, command.idempotencyKey);
+      if (repeated) return repeated;
+      const latest = await this.repository.latest(command.portfolioId);
+      if (latest) this.ledger.restoreSnapshot(latest);
+    }
+    const snapshot = this.ledger.recordStockSplit(command);
+    if (this.repository?.appendStockSplit) {
+      try { await this.repository.appendStockSplit(command, snapshot); }
+      catch (error) {
+        if (isUniqueViolation(error)) {
+          const repeated = await readIdempotentWithRetry(this.repository, command.portfolioId, command.idempotencyKey);
+          if (repeated) return repeated;
+          throw new Error('ledger version conflict');
+        }
+        throw error;
+      }
+    }
+    return snapshot;
   }
 }
 

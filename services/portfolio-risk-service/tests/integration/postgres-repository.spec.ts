@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`, `${portfolioId}-split`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -75,5 +75,16 @@ suite('PostgreSQL portfolio persistence', () => {
     expect(snapshot).toMatchObject({ cash: '1025', ledgerVersion: 2 });
     const entry = await pool.query<{ entry_type: string; amount: string }>('SELECT entry_type, amount FROM portfolio_ledger_entries WHERE portfolio_id = $1 AND entry_type = $2', [dividendPortfolioId, 'DIVIDEND']);
     expect(entry.rows[0]).toEqual({ entry_type: 'DIVIDEND', amount: '25' });
+  });
+
+  it('atomically persists a stock split and derived snapshot', async () => {
+    const splitPortfolioId = `${portfolioId}-split`;
+    const repository = new PostgresPortfolioRepository(pool);
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await service.importOpening({ ...command, portfolioId: splitPortfolioId, cash: '1000', positions: [{ securityId: 'SSE:600000', quantity: '100' }], idempotencyKey: 'split-opening' });
+    const snapshot = await service.recordStockSplit({ portfolioId: splitPortfolioId, securityId: 'SSE:600000', numerator: 2, denominator: 1, occurredAt: '2026-09-03T05:00:00Z', availableAt: '2026-09-03T05:00:00Z', sourceRef: 'split-test', actorId: 'test', reason: 'split', expectedVersion: 1, idempotencyKey: 'split-1' });
+    expect(snapshot).toMatchObject({ cash: '1000', ledgerVersion: 2 }); expect(snapshot.positions[0]?.quantity).toBe('200');
+    const entry = await pool.query<{ entry_type: string; quantity: string }>('SELECT entry_type, quantity FROM portfolio_ledger_entries WHERE portfolio_id = $1 AND entry_type = $2', [splitPortfolioId, 'SPLIT']);
+    expect(entry.rows[0]).toEqual({ entry_type: 'SPLIT', quantity: '200' });
   });
 });

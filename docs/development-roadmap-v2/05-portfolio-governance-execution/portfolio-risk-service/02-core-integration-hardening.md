@@ -6,7 +6,7 @@
 
 已将确认成交以单一 PostgreSQL 事务写入：成交、可选费用、下一版快照与快照幂等记录要么全部提交、要么全部回滚；内部接口为`POST /internal/v1/reconciliation/apply-confirmed-fill`。现金分红同样以事务写入`DIVIDEND`流水和快照，接口为`POST /internal/v1/reconciliation/apply-cash-dividend`。拆股、送股等改变持仓数量的公司行动、行情估值、风险策略、市场数据生成 Client、Outbox 事件仍属于本阶段后续步骤。
 
-拆股/送股比例调整的领域切片已支持`numerator/denominator`正整数比例并生成`SPLIT`流水：只调整目标证券的数量和可用数量，不改变现金。其 PostgreSQL 事务和内部接口尚待下一步接入。
+拆股/送股比例调整已支持`numerator/denominator`正整数比例并生成`SPLIT`流水：只调整目标证券的数量和可用数量，不改变现金；同样以 PostgreSQL 事务写入流水、快照与幂等记录，接口为`POST /internal/v1/reconciliation/apply-stock-split`。
 
 ## 实施步骤
 
