@@ -39,6 +39,21 @@ class RuleVersion(BaseModel):
     volume_multiplier: float = Field(gt=1)
 
 
+class SnapshotQuality(BaseModel):
+    source: str
+    schema_version: str
+    quote_age_seconds: float = Field(ge=0)
+    coverage: float = Field(ge=0, le=1)
+    provider_available: bool
+
+    def gate(self, *, max_age_seconds: float = 180, min_coverage: float = 1) -> Literal["PASS", "STALE", "FAIL"]:
+        if not self.provider_available or self.coverage < min_coverage:
+            return "FAIL"
+        if self.quote_age_seconds > max_age_seconds:
+            return "STALE"
+        return "PASS"
+
+
 class MarketAnomalyEvent(BaseModel):
     event_id: str
     security_id: str
