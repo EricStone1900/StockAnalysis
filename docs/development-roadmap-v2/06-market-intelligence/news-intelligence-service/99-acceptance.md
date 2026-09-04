@@ -1,5 +1,7 @@
 # news-intelligence-service验收
 
+状态：PASS（随阶段06 Ubuntu 人工验收通过，基线 `f43a7cd`）
+
 - [ ] 独立部署、采集和证据最小切片通过。
 - [ ] 来源许可和Provenance可追溯。
 - [ ] 多层去重和实体关联通过。

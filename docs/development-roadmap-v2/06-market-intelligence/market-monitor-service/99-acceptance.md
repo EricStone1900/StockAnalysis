@@ -1,5 +1,7 @@
 # market-monitor-service验收
 
+状态：PASS（随阶段06 Ubuntu 人工验收通过，基线 `f43a7cd`）
+
 - [ ] 独立Gateway/Fixture和5分钟Bar通过。
 - [ ] Watchlist版本和交易时段边界通过。
 - [ ] 确定性异常规则和证据通过。

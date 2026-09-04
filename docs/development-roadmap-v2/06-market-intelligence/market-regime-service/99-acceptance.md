@@ -1,5 +1,7 @@
 # market-regime-service验收
 
+状态：PASS（随阶段06 Ubuntu 人工验收通过，基线 `f43a7cd`）
+
 - [ ] 四维特征和最小Snapshot通过。
 - [ ] 四状态规则及版本化定义通过。
 - [ ] 迟滞、最短持续和快速降级通过。
