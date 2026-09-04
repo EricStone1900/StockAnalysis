@@ -25,4 +25,11 @@ describe('PortfolioController API mapping', () => {
     await expect(controller.reverse('p-1', 'entry-1', 'reverse-key', 'actor', 'corr', { idempotencyKey: 'reverse-key', actorId: 'actor' } as never)).resolves.toEqual({ type: 'REVERSAL' });
     await expect(controller.reverse('p-1', 'entry-1', 'wrong', 'actor', 'corr', { idempotencyKey: 'reverse-key', actorId: 'actor' } as never)).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('exposes the risk evaluation endpoint', async () => {
+    const evaluation = { evaluationId: 'risk-1', verdict: 'PASS' };
+    const service = { importOpening: vi.fn(), latest: vi.fn(), evaluateRisk: vi.fn().mockResolvedValue(evaluation) };
+    const controller = new PortfolioController(service);
+    await expect(controller.evaluateRisk('p-1', { proposalId: 'proposal-1', reason: 'NORMAL', legs: [], prices: {}, decisionBudget: { rebalanceBatchesToday: 0 }, peakEquity: '100', policy: {} as never })).resolves.toEqual(evaluation);
+  });
 });

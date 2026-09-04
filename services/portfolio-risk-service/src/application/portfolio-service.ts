@@ -1,5 +1,6 @@
 import { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 import { PortfolioValuation, PricePoint, valuePortfolio } from '../domain/valuation.js';
+import { evaluateRisk, RiskEvaluation, RiskEvaluationInput } from '../domain/risk-policy.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
@@ -135,6 +136,12 @@ export class PortfolioService {
     const valuation = valuePortfolio(snapshot, prices, marketDataVersion, asOf, maxPriceAgeMinutes);
     if (this.repository?.appendValuation) await this.repository.appendValuation(valuation);
     return valuation;
+  }
+
+  async evaluateRisk(input: Omit<RiskEvaluationInput, 'portfolio'> & { portfolioId: string }): Promise<RiskEvaluation> {
+    const portfolio = await this.latest(input.portfolioId);
+    if (!portfolio) throw new Error('portfolio snapshot not found');
+    return evaluateRisk({ ...input, portfolio });
   }
 }
 

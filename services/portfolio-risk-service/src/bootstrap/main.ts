@@ -7,6 +7,7 @@ import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
 import { CashDividendCommand, ConfirmedFillCommand, OpeningSnapshotCommand, PortfolioLedger, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 import { PortfolioService } from '../application/portfolio-service.js';
+import type { RiskEvaluationInput } from '../domain/risk-policy.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 
 const serviceName = 'portfolio-risk-service';
@@ -28,7 +29,7 @@ class DatabaseLifecycle implements OnApplicationShutdown {
 }
 @Controller('/api/v1/portfolios')
 export class PortfolioController {
-  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse'>> = portfolioService) {}
+  constructor(private readonly service: Pick<PortfolioService, 'importOpening' | 'latest'> & Partial<Pick<PortfolioService, 'reverse' | 'evaluateRisk'>> = portfolioService) {}
 
   @Post(':portfolioId/manual-snapshots')
   async importOpening(@Param('portfolioId') portfolioId: string, @Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('X-Actor-Id') actorId: string | undefined, @Headers('X-Correlation-Id') correlationId: string | undefined, @Body() body: Omit<OpeningSnapshotCommand, 'portfolioId'>) {
@@ -49,6 +50,18 @@ export class PortfolioController {
     const snapshot = await this.service.latest(portfolioId);
     if (!snapshot) throw new NotFoundException('snapshot not found');
     return snapshot;
+  }
+
+  @Post(':portfolioId/risk-evaluations')
+  async evaluateRisk(@Param('portfolioId') portfolioId: string, @Body() body: Omit<RiskEvaluationInput, 'portfolio' | 'portfolioId'>) {
+    try {
+      if (!this.service.evaluateRisk) throw new BadRequestException('risk evaluation is not configured');
+      return await this.service.evaluateRisk({ ...body, portfolioId });
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      if (error instanceof Error && error.message === 'portfolio snapshot not found') throw new NotFoundException(error.message);
+      throw new BadRequestException(error instanceof Error ? error.message : 'invalid risk evaluation');
+    }
   }
 
   @Post(':portfolioId/ledger-entries/:entryId/reversals')
