@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -45,6 +45,25 @@ class Watchlist(BaseModel):
     def validate_capacity(self, max_symbols: int = 50) -> None:
         if len({entry.security_id for entry in self.entries}) > max_symbols:
             raise ValueError(f"watchlist exceeds {max_symbols} symbols")
+
+
+class MonitorPolicy(BaseModel):
+    version: str
+    mode: Literal["FREE_TIERED_10_20_30"] = "FREE_TIERED_10_20_30"
+    intervals_minutes: dict[str, int] = {"P0": 10, "P1": 20, "P2": 30}
+    max_symbols: int = 50
+
+    def validate_for_watchlist(self, watchlist: Watchlist) -> None:
+        watchlist.validate_capacity(self.max_symbols)
+        if self.intervals_minutes != {"P0": 10, "P1": 20, "P2": 30}:
+            raise ValueError("FREE_TIERED_10_20_30 intervals are fixed")
+
+
+def due_tiers(policy: MonitorPolicy, last_evaluation: datetime, now: datetime) -> tuple[str, ...]:
+    if last_evaluation.tzinfo is None or now.tzinfo is None:
+        raise ValueError("evaluation timestamps must include timezone")
+    elapsed = (now.astimezone(UTC) - last_evaluation.astimezone(UTC)).total_seconds() / 60
+    return tuple(tier for tier in ("P0", "P1", "P2") if elapsed >= policy.intervals_minutes[tier])
 
 
 def aggregate_closed_bars(quotes: list[Quote], now: datetime) -> list[ClosedBar]:
