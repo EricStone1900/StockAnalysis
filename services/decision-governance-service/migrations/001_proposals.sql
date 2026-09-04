@@ -21,3 +21,16 @@ CREATE TABLE IF NOT EXISTS trade_proposals (
 ALTER TABLE trade_proposals ADD COLUMN IF NOT EXISTS risk_review JSONB;
 ALTER TABLE trade_proposals ADD COLUMN IF NOT EXISTS approval JSONB;
 CREATE INDEX IF NOT EXISTS trade_proposals_latest_idx ON trade_proposals (proposal_id, proposal_version DESC);
+
+CREATE TABLE IF NOT EXISTS decision_budget_reservations (
+  reservation_id TEXT PRIMARY KEY,
+  portfolio_id TEXT NOT NULL,
+  trading_date DATE NOT NULL,
+  proposal_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  batch_number INTEGER NOT NULL CHECK (batch_number >= 0),
+  status TEXT NOT NULL CHECK (status IN ('RESERVED', 'RELEASED')),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS decision_budget_active_batch_idx ON decision_budget_reservations (portfolio_id, trading_date, batch_number) WHERE status = 'RESERVED' AND batch_number > 0;
