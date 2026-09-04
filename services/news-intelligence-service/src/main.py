@@ -9,6 +9,7 @@ from src.news_events import (
     NewsEventCandidate,
     SecurityEntity,
     build_candidate,
+    freshness_for,
 )
 from src.news_ingestion import (
     FixtureNewsInput,
@@ -46,6 +47,7 @@ def build_ingestion_service() -> NewsIngestionService:
 
 ingestion_service = build_ingestion_service()
 fake_analyzer = FakeFinancialNewsAnalyzer()
+candidate_catalog: dict[str, NewsEventCandidate] = {}
 
 @app.get("/live")
 def live() -> dict[str, str]:
@@ -85,6 +87,7 @@ def create_candidate(item: dict[str, object]) -> dict[str, object]:
         candidate = build_candidate(news_item, entities)
     except (KeyError, TypeError, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+    candidate_catalog[candidate.candidate_id] = candidate
     return {"candidate": candidate}
 
 
@@ -99,3 +102,27 @@ def analyze_candidate(payload: dict[str, object]) -> dict[str, object]:
     except (KeyError, TypeError, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"event": event, "idempotent": event.agent_run_id == agent_run_id}
+
+
+@app.get("/api/v1/events")
+def list_events() -> dict[str, object]:
+    return {"events": fake_analyzer.list()}
+
+
+@app.get("/api/v1/events/{event_id}")
+def get_event(event_id: str) -> dict[str, object]:
+    event = fake_analyzer.get(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event not found")
+    return {"event": event}
+
+
+@app.get("/api/v1/news/{news_id}/freshness")
+def news_freshness(news_id: str, available_at: str, now: str) -> dict[str, str]:
+    from datetime import datetime
+
+    try:
+        status = freshness_for(datetime.fromisoformat(available_at), datetime.fromisoformat(now))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"newsId": news_id, "freshness": status}

@@ -10,6 +10,13 @@ from pydantic import BaseModel, Field
 from src.news_ingestion import NewsItem
 
 
+def freshness_for(available_at: datetime, now: datetime, max_age_seconds: int = 86_400) -> str:
+    if available_at.tzinfo is None or now.tzinfo is None:
+        raise ValueError("freshness timestamps must include timezone")
+    age = (now.astimezone(UTC) - available_at.astimezone(UTC)).total_seconds()
+    return "FRESH" if age <= max_age_seconds else "STALE"
+
+
 class SecurityEntity(BaseModel):
     symbol: str
     name: str
@@ -99,3 +106,9 @@ class FakeFinancialNewsAnalyzer:
         )
         self._events[agent_run_id] = event
         return event
+
+    def get(self, event_id: str) -> FinancialNewsEvent | None:
+        return next((event for event in self._events.values() if event.event_id == event_id), None)
+
+    def list(self) -> tuple[FinancialNewsEvent, ...]:
+        return tuple(self._events.values())

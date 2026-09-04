@@ -1,7 +1,12 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
 from src.news_events import (
     FakeFinancialNewsAnalyzer,
     SecurityEntity,
     build_candidate,
+    freshness_for,
     link_entities,
 )
 from src.news_ingestion import EvidenceArtifact, NewsItem
@@ -29,3 +34,10 @@ def test_candidate_and_fake_analyzer_are_traceable_and_idempotent() -> None:
     assert first == repeated
     assert first.evidence_ids == candidate.content_refs
     assert first.affected_symbols == ("SSE:1",)
+
+
+def test_freshness_marks_old_source_stale_and_requires_timezone() -> None:
+    now = datetime(2026, 9, 4, 2, tzinfo=UTC)
+    assert freshness_for(now - timedelta(days=2), now) == "STALE"
+    with pytest.raises(ValueError, match="timezone"):
+        freshness_for(datetime(2026, 9, 4, 1), now)  # noqa: DTZ001
