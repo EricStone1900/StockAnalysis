@@ -33,6 +33,33 @@ class ClosedBar(BaseModel):
     source_event_ids: list[str]
 
 
+class RuleVersion(BaseModel):
+    version: str
+    price_jump_pct: float = Field(gt=0)
+    volume_multiplier: float = Field(gt=1)
+
+
+class MarketAnomalyEvent(BaseModel):
+    event_id: str
+    security_id: str
+    window_start: AwareDatetime
+    rule_version: str
+    severity: Literal["WATCH", "CRITICAL"]
+    reason_codes: tuple[str, ...]
+    evidence_ids: tuple[str, ...]
+
+
+class AnomalyDeduplicator:
+    def __init__(self) -> None:
+        self._seen: set[str] = set()
+
+    def accept(self, event: MarketAnomalyEvent) -> bool:
+        if event.event_id in self._seen:
+            return False
+        self._seen.add(event.event_id)
+        return True
+
+
 class WatchlistEntry(BaseModel):
     security_id: str
     tier: Literal["P0", "P1", "P2"]
@@ -64,6 +91,22 @@ def due_tiers(policy: MonitorPolicy, last_evaluation: datetime, now: datetime) -
         raise ValueError("evaluation timestamps must include timezone")
     elapsed = (now.astimezone(UTC) - last_evaluation.astimezone(UTC)).total_seconds() / 60
     return tuple(tier for tier in ("P0", "P1", "P2") if elapsed >= policy.intervals_minutes[tier])
+
+
+def detect_anomaly(previous: ClosedBar, current: ClosedBar, rule: RuleVersion, baseline_volume: float) -> MarketAnomalyEvent | None:
+    reasons: list[str] = []
+    if previous.close > 0 and abs(current.close / previous.close - 1) >= rule.price_jump_pct:
+        reasons.append("PRICE_JUMP")
+    if baseline_volume > 0 and current.volume >= baseline_volume * rule.volume_multiplier:
+        reasons.append("VOLUME_SURGE")
+    if not reasons or current.quality == "FAIL":
+        return None
+    severity: Literal["WATCH", "CRITICAL"] = "CRITICAL" if "PRICE_JUMP" in reasons else "WATCH"
+    return MarketAnomalyEvent(
+        event_id=f"anomaly:{current.security_id}:{current.window_start.isoformat()}:{rule.version}",
+        security_id=current.security_id, window_start=current.window_start, rule_version=rule.version,
+        severity=severity, reason_codes=tuple(reasons), evidence_ids=tuple(current.source_event_ids),
+    )
 
 
 def aggregate_closed_bars(quotes: list[Quote], now: datetime) -> list[ClosedBar]:
