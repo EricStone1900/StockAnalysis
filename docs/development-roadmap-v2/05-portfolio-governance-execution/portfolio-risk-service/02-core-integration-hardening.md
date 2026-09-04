@@ -8,6 +8,8 @@
 
 拆股/送股比例调整已支持`numerator/denominator`正整数比例并生成`SPLIT`流水：只调整目标证券的数量和可用数量，不改变现金；同样以 PostgreSQL 事务写入流水、快照与幂等记录，接口为`POST /internal/v1/reconciliation/apply-stock-split`。
 
+估值领域切片已支持以`marketDataVersion`、价格`asOf`和持仓快照版本计算持仓市值与总权益；任一持仓缺价、价格非正或超过最大允许陈旧时间均失败关闭。市场数据生成 Client 与估值结果持久化仍属于后续步骤。
+
 ## 实施步骤
 
 1. 实现成交入账、现金、费用、公司行动、估值和不可变PortfolioSnapshot。

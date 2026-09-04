@@ -1,4 +1,5 @@
 import { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
+import { PortfolioValuation, PricePoint, valuePortfolio } from '../domain/valuation.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
@@ -125,6 +126,12 @@ export class PortfolioService {
       }
     }
     return snapshot;
+  }
+
+  async valueLatest(portfolioId: string, prices: readonly PricePoint[], marketDataVersion: string, asOf: string, maxPriceAgeMinutes: number): Promise<PortfolioValuation> {
+    const snapshot = await this.latest(portfolioId);
+    if (!snapshot) throw new Error('portfolio snapshot not found');
+    return valuePortfolio(snapshot, prices, marketDataVersion, asOf, maxPriceAgeMinutes);
   }
 }
 
