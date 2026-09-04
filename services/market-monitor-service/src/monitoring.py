@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import AwareDatetime, BaseModel, Field
 
@@ -15,6 +16,7 @@ class Quote(BaseModel):
     price: float = Field(gt=0)
     volume: float = Field(ge=0)
     amount: float = Field(ge=0)
+    trading_status: Literal["ACTIVE", "SUSPENDED"] = "ACTIVE"
 
 
 class ClosedBar(BaseModel):
@@ -50,20 +52,28 @@ def aggregate_closed_bars(quotes: list[Quote], now: datetime) -> list[ClosedBar]
         raise ValueError("now must include timezone")
     groups: dict[tuple[str, datetime], list[Quote]] = defaultdict(list)
     for quote in quotes:
-        stamp = quote.timestamp.astimezone(UTC)
+        stamp = quote.timestamp.astimezone(ZoneInfo("Asia/Shanghai"))
         minute = stamp.replace(second=0, microsecond=0)
         start = minute - timedelta(minutes=minute.minute % 5)
         end = start + timedelta(minutes=5)
-        if end <= now.astimezone(UTC):
+        if end <= now.astimezone(ZoneInfo("Asia/Shanghai")) and _is_trading_window(start, end):
             groups[(quote.security_id, start)].append(quote)
     bars: list[ClosedBar] = []
     for (security_id, start), values in sorted(groups.items()):
         ordered = sorted(values, key=lambda value: value.timestamp)
         prices = [value.price for value in ordered]
+        quality: Literal["PASS", "WARN"] = "WARN" if any(value.trading_status == "SUSPENDED" for value in ordered) else "PASS"
         bars.append(ClosedBar(
             security_id=security_id, window_start=start, window_end=start + timedelta(minutes=5),
             open=prices[0], high=max(prices), low=min(prices), close=prices[-1],
             volume=sum(value.volume for value in ordered), amount=sum(value.amount for value in ordered),
-            quality="PASS", source_event_ids=[f"quote:{value.timestamp.isoformat()}" for value in ordered],
+            quality=quality, source_event_ids=[f"quote:{value.timestamp.isoformat()}" for value in ordered],
         ))
     return bars
+
+
+def _is_trading_window(start: datetime, end: datetime) -> bool:
+    """首版交易时段：09:30-11:30、13:00-15:00；不跨越午休。"""
+    morning = start.hour == 9 and start.minute >= 30 or start.hour == 10 or start.hour == 11 and end.minute <= 30
+    afternoon = start.hour in (13, 14) and end.hour <= 15
+    return morning or afternoon
