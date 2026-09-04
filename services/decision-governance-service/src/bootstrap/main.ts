@@ -2,6 +2,7 @@ import { BadRequestException, Body, ConflictException, Controller, Get, Injectab
 import { GovernanceService } from '../application/governance-service.js'; import type { CreateProposalCommand } from '../domain/proposal.js';
 import { PostgresProposalRepository } from '../infrastructure/postgres-proposal-repository.js';
 import { PostgresBudgetRepository } from '../infrastructure/postgres-budget-repository.js';
+import { GovernanceOutboxRepository } from '../infrastructure/governance-outbox-repository.js';
 const serviceName = 'decision-governance-service';
 const databasePool = process.env.DECISION_GOVERNANCE_DATABASE_URL ? new Pool({ connectionString: process.env.DECISION_GOVERNANCE_DATABASE_URL, max: 5 }) : undefined;
 @Controller() class HealthController { @Get('/live') live() { return { status: 'UP' }; } @Get('/ready') ready() { return { status: 'UP', dependencies: {} }; } @Get('/metrics') metrics() { return ''; } @Get('/version') version() { return { service: serviceName, version: '0.1.0' }; } }
@@ -15,7 +16,7 @@ const databasePool = process.env.DECISION_GOVERNANCE_DATABASE_URL ? new Pool({ c
   @Post(':proposalId/budget-reservations') async reserveBudget(@Param('proposalId') proposalId: string, @Body() body: { reservationId: string; portfolioId: string; tradingDate: string; reason: string; kind: 'HOLD' | 'REBALANCE'; idempotencyKey: string; policy: { maxDailyRebalanceBatches: number; allowedSecondBatchReasons: string[] } }) { try { return await this.service.reserveBudget({ ...body, proposalId }, body.policy); } catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'invalid budget reservation'); } }
   @Post(':proposalId/budget-reservations/:reservationId/release') async releaseBudget(@Param('reservationId') reservationId: string) { try { return await this.service.releaseBudget(reservationId); } catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'invalid budget release'); } }
 }
-const governanceService = databasePool ? new GovernanceService(undefined, new PostgresProposalRepository(databasePool), undefined, new PostgresBudgetRepository(databasePool)) : new GovernanceService();
+const governanceService = databasePool ? new GovernanceService(undefined, new PostgresProposalRepository(databasePool), undefined, new PostgresBudgetRepository(databasePool), new GovernanceOutboxRepository(databasePool)) : new GovernanceService();
 @Injectable() class DatabaseLifecycle { async onApplicationShutdown(): Promise<void> { if (process.env.NODE_ENV !== 'test' && databasePool) await databasePool.end(); } }
 @Module({ controllers: [HealthController, ProposalController], providers: [{ provide: GovernanceService, useFactory: () => governanceService }, DatabaseLifecycle] }) class AppModule {}
 async function bootstrap() { const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName }); if (databasePool) await databasePool.query(await readFile(new URL('../../migrations/001_proposals.sql', import.meta.url), 'utf8')); const app = await NestFactory.create(AppModule, new FastifyAdapter()); app.enableShutdownHooks(); await app.listen(config.PORT, '0.0.0.0'); log('service.started', { service: serviceName }); }
