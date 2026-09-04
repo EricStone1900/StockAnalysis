@@ -9,6 +9,7 @@ import { CashDividendCommand, ConfirmedFillCommand, OpeningSnapshotCommand, Port
 import { PortfolioService } from '../application/portfolio-service.js';
 import type { RiskEvaluationInput } from '../domain/risk-policy.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
+import { OutboxWorkerLifecycle } from '../application/outbox-publisher.js';
 
 const serviceName = 'portfolio-risk-service';
 const databasePool = process.env.PORTFOLIO_DATABASE_URL ? new Pool({ connectionString: process.env.PORTFOLIO_DATABASE_URL, max: 5 }) : undefined;
@@ -132,7 +133,7 @@ function createPortfolioService(): PortfolioService {
 }
 const portfolioService = createPortfolioService();
 export class AppModule {}
-Module({ controllers: [HealthController, PortfolioController, ReconciliationController], providers: [DatabaseLifecycle] })(AppModule);
+Module({ controllers: [HealthController, PortfolioController, ReconciliationController], providers: [DatabaseLifecycle, OutboxWorkerLifecycle] })(AppModule);
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   await migratePortfolioDatabase();

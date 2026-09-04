@@ -1,4 +1,5 @@
 import type { OutboxEventRecord } from '../infrastructure/postgres-portfolio-repository.js';
+import { Optional } from '@nestjs/common';
 
 export interface OutboxStore {
   claimOutboxEvents(limit?: number): Promise<readonly OutboxEventRecord[]>;
@@ -54,4 +55,13 @@ export class OutboxWorker {
   }
 
   public isRunning(): boolean { return this.running; }
+}
+
+export interface OutboxWorkerLifecycleHooks { start(): void; stop(): void; }
+
+/** Nest 生命周期桥接；未配置消息发布器时保持禁用。 */
+export class OutboxWorkerLifecycle {
+  public constructor(@Optional() private readonly worker?: OutboxWorkerLifecycleHooks) {}
+  public onApplicationBootstrap(): void { this.worker?.start(); }
+  public onApplicationShutdown(): void { this.worker?.stop(); }
 }
