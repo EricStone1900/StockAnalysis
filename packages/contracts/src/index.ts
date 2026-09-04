@@ -9,4 +9,5 @@ export {
   type MarketDataPrice,
 } from './generated/market-data-client.js';
 export { InMemoryInbox } from './messaging.js';
+export { FakeStage05Publisher, type ApprovalDecidedPayload, type FillRecordedPayload, type RiskEvaluationCreatedPayload, type Stage05Event } from './stage05.js';
 export type { OutboxWriter, Transaction, UnitOfWork } from './messaging.js';
