@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateProposalCommand, ProposalAggregate, RiskReviewLink, TradeProposal } from '../domain/proposal.js';
+import { ApprovalRecord, CreateProposalCommand, ProposalAggregate, RiskReviewLink, TradeProposal } from '../domain/proposal.js';
 import type { PostgresProposalRepository } from '../infrastructure/postgres-proposal-repository.js';
 
 @Injectable()
@@ -9,4 +9,5 @@ export class GovernanceService {
   public async getProposal(proposalId: string, version?: number): Promise<TradeProposal | undefined> { return version === undefined ? (await this.repository?.latest(proposalId)) ?? this.aggregate.get(proposalId) : this.aggregate.get(proposalId, version); }
   public async attachRiskReview(proposalId: string, proposalVersion: number, review: RiskReviewLink): Promise<TradeProposal> { const proposal = this.aggregate.attachRiskReview(proposalId, proposalVersion, review); await this.repository?.updateRiskReview(proposalId, proposalVersion, review, proposal.state); return proposal; }
   public async markRiskPassed(proposalId: string, proposalVersion: number, evaluationId: string): Promise<TradeProposal> { const proposal = this.aggregate.markRiskPassed(proposalId, proposalVersion, evaluationId); if (proposal.riskReview) await this.repository?.updateRiskReview(proposalId, proposalVersion, proposal.riskReview, proposal.state); return proposal; }
+  public async decide(proposalId: string, proposalVersion: number, approval: ApprovalRecord): Promise<TradeProposal> { const proposal = this.aggregate.decide(proposalId, proposalVersion, approval); await this.repository?.updateApproval(proposalId, proposalVersion, approval, proposal.state); return proposal; }
 }

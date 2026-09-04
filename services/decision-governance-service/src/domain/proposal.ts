@@ -5,8 +5,9 @@ export type ProposalKind = 'HOLD' | 'REBALANCE';
 export interface EvidenceRef { readonly kind: 'quant' | 'strategy' | 'news' | 'regime' | 'portfolio' | 'anomaly'; readonly uri: string; readonly contentHash: string; readonly capturedAt: string; }
 export interface RebalanceLeg { readonly securityId: string; readonly side: 'BUY' | 'SELL'; readonly quantity: string; readonly targetWeight?: string; }
 export interface CreateProposalCommand { readonly proposalId: string; readonly kind: ProposalKind; readonly parentProposalVersion?: number; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly idempotencyKey: string; readonly createdAt: string; }
-export interface TradeProposal { readonly proposalId: string; readonly proposalVersion: number; readonly parentProposalVersion?: number; readonly kind: ProposalKind; readonly state: ProposalState; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly createdAt: string; readonly riskReview?: RiskReviewLink; }
 export interface RiskReviewLink { readonly evaluationId: string; readonly policyVersion: string; readonly verdict: 'PASS' | 'REJECT'; readonly reviewedAt: string; }
+export interface ApprovalRecord { readonly actorId: string; readonly decision: 'APPROVED' | 'REJECTED'; readonly reason: string; readonly decidedAt: string; }
+export interface TradeProposal { readonly proposalId: string; readonly proposalVersion: number; readonly parentProposalVersion?: number; readonly kind: ProposalKind; readonly state: ProposalState; readonly agentRunId: string; readonly targetPortfolioVersion: number; readonly legs: readonly RebalanceLeg[]; readonly evidence: readonly EvidenceRef[]; readonly contentHash: string; readonly createdAt: string; readonly riskReview?: RiskReviewLink; readonly approval?: ApprovalRecord; }
 
 export class ProposalAggregate {
   private readonly proposals = new Map<string, TradeProposal>();
@@ -26,6 +27,14 @@ export class ProposalAggregate {
     if (!proposal || proposal.state !== 'RISK_REVIEWED' || proposal.riskReview?.evaluationId !== evaluationId) throw new Error('risk review does not match proposal');
     if (proposal.riskReview.verdict !== 'PASS') throw new Error('risk evaluation is not PASS');
     const updated: TradeProposal = { ...proposal, state: 'RISK_PASSED' };
+    this.proposals.set(key, updated); return updated;
+  }
+
+  decide(proposalId: string, proposalVersion: number, approval: ApprovalRecord): TradeProposal {
+    const key = `${proposalId}:${proposalVersion}`; const proposal = this.proposals.get(key);
+    if (!proposal || proposal.state !== 'RISK_PASSED') throw new Error('proposal is not ready for approval');
+    if (!approval.actorId || !approval.reason || !Date.parse(approval.decidedAt)) throw new Error('invalid approval record');
+    const updated: TradeProposal = { ...proposal, state: approval.decision, approval };
     this.proposals.set(key, updated); return updated;
   }
 
