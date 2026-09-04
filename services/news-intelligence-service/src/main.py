@@ -1,8 +1,15 @@
 import os
 from pathlib import Path
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
 
+from src.news_events import (
+    FakeFinancialNewsAnalyzer,
+    NewsEventCandidate,
+    SecurityEntity,
+    build_candidate,
+)
 from src.news_ingestion import (
     FixtureNewsInput,
     InMemoryArtifactStore,
@@ -38,6 +45,7 @@ def build_ingestion_service() -> NewsIngestionService:
 
 
 ingestion_service = build_ingestion_service()
+fake_analyzer = FakeFinancialNewsAnalyzer()
 
 @app.get("/live")
 def live() -> dict[str, str]:
@@ -63,3 +71,31 @@ def collect_fixture(item: FixtureNewsInput) -> dict[str, object]:
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     return {"newsItem": result.item, "duplicate": result.duplicate}
+
+
+@app.post("/internal/v1/news/candidates")
+def create_candidate(item: dict[str, object]) -> dict[str, object]:
+    """从已采集 NewsItem 和 Security Master Fixture 构建候选事件。"""
+    from src.news_ingestion import NewsItem
+
+    try:
+        news_item = NewsItem.model_validate(item["newsItem"])
+        raw_entities = cast(list[Any], item.get("entities", []))
+        entities = tuple(SecurityEntity.model_validate(value) for value in raw_entities)
+        candidate = build_candidate(news_item, entities)
+    except (KeyError, TypeError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"candidate": candidate}
+
+
+@app.post("/internal/v1/news/events/analyze")
+def analyze_candidate(payload: dict[str, object]) -> dict[str, object]:
+    try:
+        candidate = NewsEventCandidate.model_validate(payload["candidate"])
+        agent_run_id = str(payload["agentRunId"])
+        if not agent_run_id:
+            raise ValueError("agentRunId must not be empty")
+        event = fake_analyzer.analyze(candidate, agent_run_id)
+    except (KeyError, TypeError, ValueError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {"event": event, "idempotent": event.agent_run_id == agent_run_id}
