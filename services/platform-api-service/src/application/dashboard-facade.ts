@@ -1,4 +1,5 @@
 import type { MarketDataClient, MarketDataVersion } from '@stock/contracts';
+import type { Principal } from './security.js';
 
 export type DependencyStatus = 'OK' | 'STALE' | 'UNAVAILABLE' | 'FORBIDDEN';
 
@@ -7,11 +8,6 @@ export interface PartialResult<T> {
   status: DependencyStatus;
   asOf?: string;
   errorCode?: string;
-}
-
-export interface Principal {
-  actorId: string;
-  roles: readonly string[];
 }
 
 export interface DashboardResponse {

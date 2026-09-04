@@ -6,6 +6,7 @@ import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 
 import { DashboardFacade } from '../application/dashboard-facade.js';
+import { createAudit, principalFromHeaders } from '../application/security.js';
 
 const serviceName = 'platform-api-service';
 const dashboardFacade = new DashboardFacade(new GeneratedMarketDataClient(process.env.MARKET_DATA_SERVICE_URL ?? 'http://localhost:3000'));
@@ -21,8 +22,11 @@ class HealthController {
 @Controller('/api/v1')
 class DashboardController {
   @Get('/dashboard')
-  async dashboard(@Headers('x-actor-id') actorId = 'anonymous', @Headers('x-roles') roles = '') {
-    return await dashboardFacade.latest({ actorId, roles: roles.split(',').filter(Boolean) });
+  async dashboard(@Headers('x-actor-id') actorId: string | undefined, @Headers('x-roles') roles: string | undefined, @Headers('x-request-id') requestId = 'generated-request-id', @Headers('x-correlation-id') correlationId = requestId) {
+    const principal = principalFromHeaders(actorId, roles);
+    const result = await dashboardFacade.latest(principal);
+    createAudit({ requestId, correlationId, actorId: principal.actorId, action: 'dashboard.read' });
+    return result;
   }
 }
 
