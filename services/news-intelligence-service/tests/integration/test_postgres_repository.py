@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from src.news_events import FakeFinancialNewsAnalyzer, SecurityEntity, build_candidate
 from src.news_ingestion import EvidenceArtifact, NewsItem
 from src.news_repository import PostgresNewsRepository
 
@@ -29,3 +30,10 @@ def test_migration_save_and_duplicate_lookup() -> None:
     repository.save(item)
     repository.save(item)
     assert repository.find_duplicate(item.canonical_url, item.content_hash) == item
+
+    candidate = build_candidate(item.model_copy(update={"title": "星河科技公告"}), (SecurityEntity(symbol="SSE:1", name="星河科技"),))
+    repository.save_candidate(candidate)
+    event = FakeFinancialNewsAnalyzer().analyze(candidate, f"run-{suffix}")
+    repository.save_event(event)
+    repository.save_event(event)
+    assert repository.find_event_by_agent_run(event.agent_run_id) == event

@@ -27,3 +27,18 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
   items_stored INTEGER NOT NULL DEFAULT 0 CHECK (items_stored >= 0),
   payload JSONB NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS news_event_candidates (
+  candidate_id TEXT PRIMARY KEY,
+  cluster_version TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS financial_news_events (
+  event_id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL REFERENCES news_event_candidates(candidate_id),
+  agent_run_id TEXT NOT NULL UNIQUE,
+  payload JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

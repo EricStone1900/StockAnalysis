@@ -9,6 +9,7 @@ from pathlib import Path
 import psycopg
 from boto3.session import Session
 
+from src.news_events import FinancialNewsEvent, NewsEventCandidate
 from src.news_ingestion import EvidenceArtifact, NewsItem
 
 
@@ -45,6 +46,29 @@ class PostgresNewsRepository:
                     item.status, json.dumps(payload),
                 ),
             )
+
+    def save_candidate(self, candidate: NewsEventCandidate) -> None:
+        with psycopg.connect(self._database_url) as connection:
+            connection.execute(
+                """INSERT INTO news_event_candidates (candidate_id, cluster_version, payload)
+                VALUES (%s, %s, %s::jsonb) ON CONFLICT (candidate_id) DO NOTHING""",
+                (candidate.candidate_id, candidate.cluster_version, json.dumps(candidate.model_dump(mode="json"))),
+            )
+
+    def save_event(self, event: FinancialNewsEvent) -> None:
+        with psycopg.connect(self._database_url) as connection:
+            connection.execute(
+                """INSERT INTO financial_news_events (event_id, candidate_id, agent_run_id, payload)
+                VALUES (%s, %s, %s, %s::jsonb) ON CONFLICT DO NOTHING""",
+                (event.event_id, event.candidate_id, event.agent_run_id, json.dumps(event.model_dump(mode="json"))),
+            )
+
+    def find_event_by_agent_run(self, agent_run_id: str) -> FinancialNewsEvent | None:
+        with psycopg.connect(self._database_url) as connection:
+            row = connection.execute(
+                "SELECT payload FROM financial_news_events WHERE agent_run_id = %s", (agent_run_id,)
+            ).fetchone()
+        return FinancialNewsEvent.model_validate(row[0]) if row else None
 
 
 class MinioEvidenceStore:
