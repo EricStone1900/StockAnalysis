@@ -196,6 +196,17 @@ services:
       timeout: 3s
       retries: 20
 
+  market-monitor-service:
+    build:
+      context: ../..
+      dockerfile: services/market-monitor-service/Dockerfile
+    ports: ["3006:3000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:3000/live')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }
