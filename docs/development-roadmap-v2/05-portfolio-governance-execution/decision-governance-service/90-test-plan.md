@@ -9,5 +9,6 @@
 - 多Leg Proposal、目标组合版本、拆单规避和内容Hash变化。
 - 重复、乱序和迟到事件。
 - Agent、Risk、Execution Fake Contract Test。
+- PostgreSQL 迁移、Outbox 幂等写入、领取租约、NATS 发布确认和失败重试。
 
 关键不变量：任何路径都不能绕过当前Proposal的风险复核、硬风控、人工批准和预算预留；并发流程不能超用批次额度。
