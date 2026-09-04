@@ -1,4 +1,4 @@
-import { LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
+import { ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
@@ -56,6 +56,10 @@ export class PortfolioService {
       }
     }
     return entry;
+  }
+
+  async recordConfirmedFill(command: ConfirmedFillCommand): Promise<PortfolioSnapshot> {
+    return this.ledger.recordConfirmedFill(command);
   }
 }
 

@@ -66,6 +66,22 @@ export interface ReversalCommand {
   readonly idempotencyKey: string;
   readonly correlationId?: string;
 }
+export interface ConfirmedFillCommand {
+  readonly portfolioId: string;
+  readonly securityId: string;
+  readonly side: 'BUY' | 'SELL';
+  readonly quantity: string;
+  readonly price: string;
+  readonly fee: string;
+  readonly occurredAt: string;
+  readonly availableAt: string;
+  readonly sourceRef: string;
+  readonly actorId: string;
+  readonly reason: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+  readonly correlationId?: string;
+}
 
 export class PortfolioLedger {
   private readonly versions = new Map<string, number>();
@@ -144,6 +160,36 @@ export class PortfolioLedger {
     this.versions.set(command.portfolioId, currentVersion + 1);
     return entry;
   }
+
+  recordConfirmedFill(command: ConfirmedFillCommand): PortfolioSnapshot {
+    const idempotencyKey = `${command.portfolioId}:${command.idempotencyKey}`;
+    const repeated = this.idempotency.get(idempotencyKey);
+    if (repeated) return repeated;
+    const previous = this.latest(command.portfolioId);
+    if (!previous) throw new Error('opening snapshot is required before a fill');
+    const currentVersion = this.versions.get(command.portfolioId) ?? this.defaultVersion;
+    if (command.expectedVersion !== currentVersion) throw new Error('ledger version conflict');
+    validateFillCommand(command);
+    const gross = multiplyDecimal(command.quantity, command.price);
+    const currentPositions = new Map(previous.positions.map((position) => [position.securityId, position]));
+    const current = currentPositions.get(command.securityId) ?? { securityId: command.securityId, quantity: '0', availableQuantity: '0' };
+    const nextQuantity = command.side === 'BUY' ? addDecimal(current.quantity, command.quantity) : subtractDecimal(current.quantity, command.quantity);
+    if (isNegative(nextQuantity)) throw new Error('sell quantity exceeds available position');
+    if (isZero(nextQuantity)) currentPositions.delete(command.securityId);
+    else currentPositions.set(command.securityId, { securityId: command.securityId, quantity: nextQuantity, availableQuantity: nextQuantity });
+    const cashBeforeFee = command.side === 'BUY' ? subtractDecimal(previous.cash, gross) : addDecimal(previous.cash, gross);
+    const cash = subtractDecimal(cashBeforeFee, command.fee);
+    const nextVersion = currentVersion + 1;
+    const snapshotWithoutHash = { snapshotId: `portfolio-snapshot-${command.portfolioId}-${nextVersion}`, portfolioId: command.portfolioId, accountId: previous.accountId, asOf: command.availableAt, cash, positions: [...currentPositions.values()].sort((left, right) => left.securityId.localeCompare(right.securityId)), ledgerVersion: nextVersion, sourceRef: command.sourceRef };
+    const snapshot: PortfolioSnapshot = { ...snapshotWithoutHash, contentHash: sha256(snapshotWithoutHash) };
+    const entry: LedgerEntry = { entryId: `ledger-entry-${command.portfolioId}-${nextVersion}`, portfolioId: command.portfolioId, type: command.side, securityId: command.securityId, quantity: command.quantity, amount: gross, occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason, correlationId: command.correlationId };
+    this.versions.set(command.portfolioId, nextVersion);
+    this.entries.set(entry.entryId, entry);
+    if (!isZero(command.fee)) this.entries.set(`fee-${entry.entryId}`, { ...entry, entryId: `fee-${entry.entryId}`, type: 'FEE', amount: negateDecimal(command.fee), quantity: undefined, securityId: undefined });
+    this.snapshots.set(snapshot.snapshotId, snapshot);
+    this.idempotency.set(idempotencyKey, snapshot);
+    return snapshot;
+  }
 }
 
 function validateCommand(command: OpeningSnapshotCommand): void {
@@ -157,11 +203,33 @@ function validateCommand(command: OpeningSnapshotCommand): void {
 function validateDecimal(value: string): void {
   if (!/^-?\d+(?:\.\d{1,8})?$/.test(value)) throw new Error('amount and quantity must be Decimal strings with at most 8 places');
 }
+function validateFillCommand(command: ConfirmedFillCommand): void {
+  for (const value of [command.quantity, command.price, command.fee]) validateDecimal(value);
+  if (!command.portfolioId || !command.securityId || !command.sourceRef || !command.actorId || !command.reason || !command.idempotencyKey) throw new Error('required fill field is missing');
+  if (decimalToNumber(command.quantity) <= 0 || decimalToNumber(command.price) <= 0 || decimalToNumber(command.fee) < 0) throw new Error('fill quantity and price must be positive and fee cannot be negative');
+  if (!Date.parse(command.occurredAt) || !Date.parse(command.availableAt) || new Date(command.availableAt) < new Date(command.occurredAt)) throw new Error('invalid fill event time');
+}
 
 function decimalToNumber(value: string): number {
   return Number(value);
 }
 function negateDecimal(value: string): string { return value.startsWith('-') ? value.slice(1) : `-${value}`; }
+
+const decimalScale = 100_000_000n;
+function decimalToScaled(value: string): bigint {
+  const negative = value.startsWith('-'); const [whole, fraction = ''] = (negative ? value.slice(1) : value).split('.');
+  const scaled = BigInt(whole) * decimalScale + BigInt((fraction + '00000000').slice(0, 8));
+  return negative ? -scaled : scaled;
+}
+function scaledToDecimal(value: bigint): string {
+  const negative = value < 0n; const absolute = negative ? -value : value; const whole = absolute / decimalScale; const fraction = (absolute % decimalScale).toString().padStart(8, '0').replace(/0+$/, '');
+  return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`;
+}
+function addDecimal(left: string, right: string): string { return scaledToDecimal(decimalToScaled(left) + decimalToScaled(right)); }
+function subtractDecimal(left: string, right: string): string { return scaledToDecimal(decimalToScaled(left) - decimalToScaled(right)); }
+function multiplyDecimal(left: string, right: string): string { return scaledToDecimal((decimalToScaled(left) * decimalToScaled(right)) / decimalScale); }
+function isNegative(value: string): boolean { return decimalToScaled(value) < 0n; }
+function isZero(value: string): boolean { return decimalToScaled(value) === 0n; }
 
 function sha256(value: object): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');

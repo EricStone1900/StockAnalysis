@@ -51,4 +51,18 @@ describe('portfolio ledger opening snapshot', () => {
     expect(restored.latest('portfolio-1')).toEqual(snapshot);
     expect(restored.importOpening(command({ idempotencyKey: 'opening-2', expectedVersion: 1 })).ledgerVersion).toBe(2);
   });
+
+  it('records buy and sell fills using Decimal cash and position arithmetic', () => {
+    const ledger = new PortfolioLedger();
+    ledger.importOpening(command({ cash: '1000', positions: [] }));
+    const buy = ledger.recordConfirmedFill({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', side: 'BUY', quantity: '10', price: '12.34', fee: '0.50', occurredAt: '2026-09-03T02:00:00Z', availableAt: '2026-09-03T02:00:00Z', sourceRef: 'fill-1', actorId: 'operator-1', reason: '确认买入', expectedVersion: 1, idempotencyKey: 'fill-1' });
+    expect(buy.cash).toBe('876.1'); expect(buy.positions[0]).toMatchObject({ securityId: 'SSE:600000', quantity: '10' });
+    const sell = ledger.recordConfirmedFill({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', side: 'SELL', quantity: '4', price: '15', fee: '0.10', occurredAt: '2026-09-03T03:00:00Z', availableAt: '2026-09-03T03:00:00Z', sourceRef: 'fill-2', actorId: 'operator-1', reason: '确认卖出', expectedVersion: 2, idempotencyKey: 'fill-2' });
+    expect(sell.cash).toBe('936'); expect(sell.positions[0]?.quantity).toBe('6');
+  });
+
+  it('rejects a sell exceeding the available position', () => {
+    const ledger = new PortfolioLedger(); ledger.importOpening(command({ positions: [] }));
+    expect(() => ledger.recordConfirmedFill({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', side: 'SELL', quantity: '1', price: '1', fee: '0', occurredAt: '2026-09-03T02:00:00Z', availableAt: '2026-09-03T02:00:00Z', sourceRef: 'fill', actorId: 'operator-1', reason: '卖出', expectedVersion: 1, idempotencyKey: 'fill' })).toThrow('exceeds');
+  });
 });
