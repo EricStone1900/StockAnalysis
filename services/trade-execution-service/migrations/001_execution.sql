@@ -32,3 +32,4 @@ CREATE TABLE IF NOT EXISTS execution_fills (
   idempotency_key TEXT NOT NULL UNIQUE,
   payload JSONB NOT NULL
 );
+CREATE TABLE IF NOT EXISTS reconciliation_cases (case_id TEXT PRIMARY KEY, rebalance_batch_id TEXT NOT NULL, intent_id TEXT NOT NULL, expected_quantity TEXT NOT NULL, actual_quantity TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('OPEN','RESOLVED','IGNORED')), reason TEXT, updated_at TIMESTAMPTZ NOT NULL, idempotency_key TEXT NOT NULL UNIQUE, payload JSONB NOT NULL);
