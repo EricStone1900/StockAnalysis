@@ -36,4 +36,12 @@ describe('PostgresPortfolioRepository', () => {
     expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_risk_evaluations'))).toBe(true);
     expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_outbox_events'))).toBe(true);
   });
+
+  it('claims pending outbox events with a bounded batch and marks them published', async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [{ event_id: 'event-1', subject: 'stock.portfolio-risk.risk-evaluation.created.v1', aggregate_id: 'p-1', payload: { evaluation: {} }, available_at: '2026-09-04T00:00:00Z' }] }).mockResolvedValue({ rows: [] });
+    const repository = new PostgresPortfolioRepository({ query });
+    await expect(repository.claimOutboxEvents(10)).resolves.toEqual([{ eventId: 'event-1', subject: 'stock.portfolio-risk.risk-evaluation.created.v1', aggregateId: 'p-1', payload: { evaluation: {} }, availableAt: '2026-09-04T00:00:00Z' }]);
+    await repository.markOutboxPublished('event-1');
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining('published_at = now()'), ['event-1']);
+  });
 });

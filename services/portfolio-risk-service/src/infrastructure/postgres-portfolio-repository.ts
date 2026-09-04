@@ -3,6 +3,8 @@ import type { PortfolioValuation } from '../domain/valuation.js';
 import type { RiskEvaluation } from '../domain/risk-policy.js';
 import { randomUUID } from 'node:crypto';
 
+export interface OutboxEventRecord { readonly eventId: string; readonly subject: string; readonly aggregateId: string; readonly payload: Record<string, unknown>; readonly availableAt: string; }
+
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
 }
@@ -173,6 +175,18 @@ export class PostgresPortfolioRepository {
       await connection.query('COMMIT');
     } catch (error) { await connection.query('ROLLBACK'); throw error; }
     finally { connection.release?.(); }
+  }
+
+  async claimOutboxEvents(limit = 50): Promise<readonly OutboxEventRecord[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('invalid outbox batch size');
+    const result = await this.client.query<{ event_id: string; subject: string; aggregate_id: string; payload: Record<string, unknown>; available_at: string }>(
+      `UPDATE portfolio_outbox_events SET available_at = now() + interval '30 seconds' WHERE ctid IN (SELECT ctid FROM portfolio_outbox_events WHERE published_at IS NULL AND available_at <= now() ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT $1) RETURNING event_id, subject, aggregate_id, payload, available_at`, [limit],
+    );
+    return result.rows.map((row) => ({ eventId: row.event_id, subject: row.subject, aggregateId: row.aggregate_id, payload: row.payload, availableAt: row.available_at }));
+  }
+
+  async markOutboxPublished(eventId: string): Promise<void> {
+    await this.client.query('UPDATE portfolio_outbox_events SET published_at = now() WHERE event_id = $1 AND published_at IS NULL', [eventId]);
   }
 }
 
