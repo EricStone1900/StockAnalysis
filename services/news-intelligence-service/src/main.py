@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 
 from src.news_ingestion import (
@@ -6,9 +9,35 @@ from src.news_ingestion import (
     InMemoryNewsRepository,
     NewsIngestionService,
 )
+from src.news_repository import MinioEvidenceStore, PostgresNewsRepository
 
 app = FastAPI(title="news-intelligence-service", version="0.1.0")
-ingestion_service = NewsIngestionService(InMemoryNewsRepository(), InMemoryArtifactStore())
+
+
+def _read_optional_secret(value: str | None, file_name: str | None) -> str | None:
+    if value:
+        return value
+    return Path(file_name).read_text().strip() if file_name else None
+
+
+def build_ingestion_service() -> NewsIngestionService:
+    database_url = os.getenv("NEWS_INTELLIGENCE_DATABASE_URL")
+    endpoint = os.getenv("MINIO_ENDPOINT")
+    access_key = os.getenv("MINIO_ACCESS_KEY")
+    secret_key = _read_optional_secret(os.getenv("MINIO_SECRET_KEY"), os.getenv("MINIO_SECRET_KEY_FILE"))
+    bucket = os.getenv("ARTIFACT_BUCKET")
+    configured = [database_url, endpoint, access_key, secret_key, bucket]
+    if not any(configured):
+        return NewsIngestionService(InMemoryNewsRepository(), InMemoryArtifactStore())
+    if not all(configured):
+        raise RuntimeError("news persistence configuration is incomplete")
+    assert database_url and endpoint and access_key and secret_key and bucket
+    repository = PostgresNewsRepository(database_url)
+    repository.migrate(Path(__file__).parent.parent / "migrations" / "001_news.sql")
+    return NewsIngestionService(repository, MinioEvidenceStore(endpoint, access_key, secret_key, bucket))
+
+
+ingestion_service = build_ingestion_service()
 
 @app.get("/live")
 def live() -> dict[str, str]:

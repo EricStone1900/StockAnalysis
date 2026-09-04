@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
+from typing import Protocol
 from urllib.parse import urldefrag
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -59,6 +60,16 @@ class IngestionResult:
     duplicate: bool
 
 
+class EvidenceStore(Protocol):
+    def put(self, content: str, content_hash: str, license_policy_id: str) -> EvidenceArtifact: ...
+
+
+class NewsRepository(Protocol):
+    def find_duplicate(self, canonical_url: str, content_hash: str) -> NewsItem | None: ...
+
+    def save(self, item: NewsItem) -> None: ...
+
+
 class InMemoryArtifactStore:
     """测试期证据仓库；生产替换为不可变 MinIO Adapter。"""
 
@@ -88,7 +99,7 @@ class InMemoryNewsRepository:
 
 
 class NewsIngestionService:
-    def __init__(self, repository: InMemoryNewsRepository, artifacts: InMemoryArtifactStore) -> None:
+    def __init__(self, repository: NewsRepository, artifacts: EvidenceStore) -> None:
         self._repository = repository
         self._artifacts = artifacts
 
