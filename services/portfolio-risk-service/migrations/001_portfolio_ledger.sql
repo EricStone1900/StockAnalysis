@@ -69,3 +69,15 @@ CREATE TABLE IF NOT EXISTS portfolio_valuations (
   UNIQUE (portfolio_snapshot_id, market_data_version, as_of)
 );
 CREATE INDEX IF NOT EXISTS portfolio_valuations_latest_idx ON portfolio_valuations (portfolio_id, as_of DESC);
+
+CREATE TABLE IF NOT EXISTS portfolio_risk_evaluations (
+  evaluation_id TEXT PRIMARY KEY,
+  portfolio_id TEXT NOT NULL,
+  proposal_id TEXT NOT NULL,
+  policy_version TEXT NOT NULL,
+  verdict TEXT NOT NULL CHECK (verdict IN ('PASS', 'REJECT')),
+  payload JSONB NOT NULL,
+  content_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (portfolio_id, proposal_id, policy_version)
+);

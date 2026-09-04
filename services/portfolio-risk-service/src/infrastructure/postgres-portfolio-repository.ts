@@ -1,5 +1,6 @@
 import type { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 import type { PortfolioValuation } from '../domain/valuation.js';
+import type { RiskEvaluation } from '../domain/risk-policy.js';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -159,6 +160,15 @@ export class PostgresPortfolioRepository {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
        ON CONFLICT (portfolio_snapshot_id, market_data_version, as_of) DO NOTHING`,
       [valuation.valuationId, valuation.portfolioId, valuation.portfolioSnapshotId, valuation.ledgerVersion, valuation.marketDataVersion, valuation.asOf, valuation.marketValue, valuation.totalEquity, JSON.stringify(valuation), valuation.contentHash],
+    );
+  }
+
+  async appendRiskEvaluation(evaluation: RiskEvaluation, portfolioId: string): Promise<void> {
+    await this.client.query(
+      `INSERT INTO portfolio_risk_evaluations (evaluation_id, portfolio_id, proposal_id, policy_version, verdict, payload, content_hash)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7)
+       ON CONFLICT (portfolio_id, proposal_id, policy_version) DO NOTHING`,
+      [evaluation.evaluationId, portfolioId, evaluation.proposalId, evaluation.policyVersion, evaluation.verdict, JSON.stringify(evaluation), evaluation.evaluationId],
     );
   }
 }

@@ -12,6 +12,7 @@ interface PortfolioPersistence {
   appendCashDividend?(command: CashDividendCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendStockSplit?(command: StockSplitCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendValuation?(valuation: PortfolioValuation): Promise<void>;
+  appendRiskEvaluation?(evaluation: RiskEvaluation, portfolioId: string): Promise<void>;
 }
 
 export class PortfolioService {
@@ -141,7 +142,9 @@ export class PortfolioService {
   async evaluateRisk(input: Omit<RiskEvaluationInput, 'portfolio'> & { portfolioId: string }): Promise<RiskEvaluation> {
     const portfolio = await this.latest(input.portfolioId);
     if (!portfolio) throw new Error('portfolio snapshot not found');
-    return evaluateRisk({ ...input, portfolio });
+    const evaluation = evaluateRisk({ ...input, portfolio });
+    if (this.repository?.appendRiskEvaluation) await this.repository.appendRiskEvaluation(evaluation, input.portfolioId);
+    return evaluation;
   }
 }
 

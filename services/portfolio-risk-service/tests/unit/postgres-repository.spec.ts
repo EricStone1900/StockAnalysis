@@ -29,4 +29,10 @@ describe('PostgresPortfolioRepository', () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ entry_id: 'entry-1', portfolio_id: 'p-1', entry_type: 'OPENING', amount: '1', occurred_at: '2026-09-03T00:00:00Z', available_at: '2026-09-03T00:00:00Z', source_ref: 'src', actor_id: 'actor', reason: 'opening' }] });
     await expect(new PostgresPortfolioRepository({ query }).findEntry('entry-1')).resolves.toMatchObject({ entryId: 'entry-1', type: 'OPENING' });
   });
+
+  it('persists risk evaluations idempotently by proposal and policy version', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    await new PostgresPortfolioRepository({ query }).appendRiskEvaluation({ evaluationId: 'risk-1', proposalId: 'proposal-1', policyVersion: 'policy-v1', verdict: 'PASS', rules: [], before: { cash: '1', totalEquity: '1' }, projectedAfter: { cash: '1', totalEquity: '1' } }, 'p-1');
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('ON CONFLICT (portfolio_id, proposal_id, policy_version)'), expect.arrayContaining(['p-1', 'proposal-1', 'policy-v1']));
+  });
 });
