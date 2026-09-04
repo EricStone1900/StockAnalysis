@@ -11,6 +11,7 @@ export class ExecutionAggregate {
   private readonly fills = new Map<string, FillCommand>();
   createApprovedBatch(command: ApprovedExecutionCommand): RebalanceBatch {
     const repeated = this.idempotency.get(command.idempotencyKey); if (repeated) return repeated;
+    if (this.batches.has(command.rebalanceBatchId)) throw new Error('rebalance batch already exists');
     if (!command.rebalanceBatchId || !command.decisionId || !command.approvalId || !command.riskEvaluationId || !command.budgetReservationId || command.proposalVersion < 1 || command.targetPortfolioVersion < 1) throw new Error('required execution approval field is missing');
     if (!Date.parse(command.validUntil) || new Date(command.validUntil).getTime() <= Date.now()) throw new Error('execution approval is expired');
     if (command.legs.length === 0) throw new Error('rebalance batch requires at least one leg');
