@@ -6,6 +6,12 @@ export interface MarketDataPrice {
   dataVersion: string;
 }
 
+export interface MarketDataVersion {
+  versionId: string;
+  status: string;
+  availableAt: string;
+}
+
 export interface FetchResponse {
   ok: boolean;
   status: number;
@@ -15,11 +21,18 @@ export interface FetchResponse {
 export type FetchLike = (input: URL, init?: { method?: string }) => Promise<FetchResponse>;
 
 export interface MarketDataClient {
+  getLatestDataVersion(): Promise<MarketDataVersion>;
   getPrice(symbol: string, dataVersion: string, asOf: string): Promise<MarketDataPrice>;
 }
 
 export class GeneratedMarketDataClient implements MarketDataClient {
   public constructor(private readonly baseUrl: string, private readonly fetchImpl: FetchLike = globalThis.fetch as unknown as FetchLike) {}
+
+  public async getLatestDataVersion(): Promise<MarketDataVersion> {
+    const response = await this.fetchImpl(new URL('/api/v1/data-versions/latest', this.baseUrl), { method: 'GET' });
+    if (!response.ok) throw new Error(`market-data request failed: ${response.status}`);
+    return await response.json() as MarketDataVersion;
+  }
 
   public async getPrice(symbol: string, dataVersion: string, asOf: string): Promise<MarketDataPrice> {
     const url = new URL(`/api/v1/prices/${encodeURIComponent(symbol)}`, this.baseUrl);

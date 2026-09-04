@@ -7,6 +7,7 @@ export {
   type FetchResponse,
   type MarketDataClient,
   type MarketDataPrice,
+  type MarketDataVersion,
 } from './generated/market-data-client.js';
 export { InMemoryInbox } from './messaging.js';
 export { FakeStage05Publisher, type ApprovalDecidedPayload, type FillRecordedPayload, type RiskEvaluationCreatedPayload, type Stage05Event } from './stage05.js';
