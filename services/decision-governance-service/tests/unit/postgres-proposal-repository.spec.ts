@@ -9,4 +9,5 @@ describe('PostgresProposalRepository', () => {
     expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO trade_proposals'), expect.arrayContaining(['p-1', 1, 'key']));
   });
   it('读取幂等记录和最新版本', async () => { const payload = { proposalId: 'p-1', proposalVersion: 1 } as never; const query = vi.fn().mockResolvedValue({ rows: [{ payload }] }); const repository = new PostgresProposalRepository({ query }); expect(await repository.findByIdempotency('key')).toBe(payload); expect(await repository.latest('p-1')).toBe(payload); });
+  it('更新风险复核字段和状态', async () => { const query = vi.fn().mockResolvedValue({ rows: [] }); await new PostgresProposalRepository({ query }).updateRiskReview('p-1', 1, { evaluationId: 'eval-1', policyVersion: 'policy-v1', verdict: 'PASS', reviewedAt: '2026-09-04T00:00:00Z' }, 'RISK_PASSED'); expect(query).toHaveBeenCalledWith(expect.stringContaining('risk_review'), expect.arrayContaining(['RISK_PASSED', 'p-1', 1])); });
 });

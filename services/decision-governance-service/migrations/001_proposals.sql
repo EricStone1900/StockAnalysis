@@ -10,10 +10,12 @@ CREATE TABLE IF NOT EXISTS trade_proposals (
   evidence JSONB NOT NULL,
   content_hash TEXT NOT NULL,
   payload JSONB NOT NULL,
+  risk_review JSONB,
   idempotency_key TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (proposal_id, proposal_version),
   UNIQUE (idempotency_key),
   UNIQUE (proposal_id, content_hash)
 );
+ALTER TABLE trade_proposals ADD COLUMN IF NOT EXISTS risk_review JSONB;
 CREATE INDEX IF NOT EXISTS trade_proposals_latest_idx ON trade_proposals (proposal_id, proposal_version DESC);
