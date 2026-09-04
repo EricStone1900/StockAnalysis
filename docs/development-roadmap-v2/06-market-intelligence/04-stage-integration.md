@@ -16,3 +16,9 @@
 ## 完成条件
 
 三个服务均可独立运行，集成只通过API/事件/Artifact，不存在共享数据库或隐式代码依赖。
+
+## Mac 本机冒烟记录
+
+- 执行 `python scripts/stage06-contract-smoke.py`：`stage06 contract smoke: PASS`。
+- 脚本验证 Candidate、MarketAnomalyEvent、MarketRegimeSnapshot 的 SecurityId、版本、DataVersion 和 evidenceIds 可组合。
+- 该脚本不替代真实 NATS、PostgreSQL、MinIO、Gateway 或 Agent 验收。
