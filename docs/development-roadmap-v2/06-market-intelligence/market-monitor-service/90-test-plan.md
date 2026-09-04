@@ -13,3 +13,12 @@
 - 策略：MonitorPolicy在交易时段冻结；阈值动作只允许HOLD、WATCH、DELAY、CANCEL、风险减仓或执行修正，不能重新计算日频Alpha。
 
 历史回放是必选验收，不允许只使用实时手工测试。
+
+## 本机验证记录（Mac）
+
+- `uv run ruff check .`、`uv run mypy src`、`git diff --check`：通过。
+- `uv run pytest -o addopts=''`：9 passed。
+- 覆盖封闭Bar、乱序与午休、停牌质量、Watchlist容量、P0/P1/P2周期、异常规则、去重、陈旧行情和Provider故障关闭。
+- `docker compose -f infra/compose/docker-compose.yml config --quiet`：通过。
+
+真实Gateway、历史回放性能、断线重连和 Ubuntu 部署需单独人工验收。
