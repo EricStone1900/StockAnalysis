@@ -37,7 +37,7 @@ class PostgresNewsRepository:
                 available_at, source_reliability, content_hash, evidence_uri, license_policy_id,
                 status, payload
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
-                ON CONFLICT (canonical_url) DO NOTHING""",
+                ON CONFLICT DO NOTHING""",
                 (
                     item.news_id, item.source_id, item.canonical_url, item.title, item.language,
                     item.published_at, item.collected_at, item.available_at, item.source_reliability,
