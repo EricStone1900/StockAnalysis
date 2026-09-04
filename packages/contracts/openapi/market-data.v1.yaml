@@ -7,3 +7,24 @@ paths:
     get: { responses: { '200': { description: Calendar and sessions } } }
   /api/v1/data-versions/latest:
     get: { responses: { '200': { description: Latest READY DataVersion } } }
+  /api/v1/prices/{symbol}:
+    get:
+      summary: 查询指定数据版本和时间点的日收盘价
+      parameters:
+        - { name: symbol, in: path, required: true, schema: { type: string, pattern: '^[A-Z]+:[0-9]{6}$' } }
+        - { name: dataVersion, in: query, required: true, schema: { type: string, minLength: 1 } }
+        - { name: asOf, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: PIT 日收盘价
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [securityId, close, asOf, dataVersion]
+                properties:
+                  securityId: { type: string }
+                  close: { type: string, pattern: '^[0-9]+(\\.[0-9]{1,8})?$' }
+                  asOf: { type: string, format: date }
+                  dataVersion: { type: string }
+        '404': { description: 指定版本或日期无价格 }
