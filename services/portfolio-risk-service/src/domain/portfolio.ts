@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export type LedgerEntryType = 'OPENING' | 'BUY' | 'SELL' | 'FEE' | 'DIVIDEND' | 'REVERSAL';
+export type LedgerEntryType = 'OPENING' | 'BUY' | 'SELL' | 'FEE' | 'DIVIDEND' | 'SPLIT' | 'REVERSAL';
 
 export interface LedgerEntry {
   readonly entryId: string;
@@ -86,6 +86,20 @@ export interface CashDividendCommand {
   readonly portfolioId: string;
   readonly securityId: string;
   readonly cashPerShare: string;
+  readonly occurredAt: string;
+  readonly availableAt: string;
+  readonly sourceRef: string;
+  readonly actorId: string;
+  readonly reason: string;
+  readonly expectedVersion: number;
+  readonly idempotencyKey: string;
+  readonly correlationId?: string;
+}
+export interface StockSplitCommand {
+  readonly portfolioId: string;
+  readonly securityId: string;
+  readonly numerator: number;
+  readonly denominator: number;
   readonly occurredAt: string;
   readonly availableAt: string;
   readonly sourceRef: string;
@@ -226,6 +240,30 @@ export class PortfolioLedger {
     this.idempotency.set(idempotencyKey, snapshot);
     return snapshot;
   }
+
+  recordStockSplit(command: StockSplitCommand): PortfolioSnapshot {
+    const idempotencyKey = `${command.portfolioId}:${command.idempotencyKey}`;
+    const repeated = this.idempotency.get(idempotencyKey);
+    if (repeated) return repeated;
+    const previous = this.latest(command.portfolioId);
+    if (!previous) throw new Error('opening snapshot is required before a corporate action');
+    const currentVersion = this.versions.get(command.portfolioId) ?? this.defaultVersion;
+    if (command.expectedVersion !== currentVersion) throw new Error('ledger version conflict');
+    validateStockSplitCommand(command);
+    const position = previous.positions.find((item) => item.securityId === command.securityId);
+    if (!position || isZero(position.quantity)) throw new Error('stock split requires a current position');
+    const adjustedQuantity = multiplyRatio(position.quantity, command.numerator, command.denominator);
+    const positions = previous.positions.map((item) => item.securityId === command.securityId ? { ...item, quantity: adjustedQuantity, availableQuantity: adjustedQuantity } : item);
+    const nextVersion = currentVersion + 1;
+    const snapshotWithoutHash = { snapshotId: `portfolio-snapshot-${command.portfolioId}-${nextVersion}`, portfolioId: command.portfolioId, accountId: previous.accountId, asOf: command.availableAt, cash: previous.cash, positions, ledgerVersion: nextVersion, sourceRef: command.sourceRef };
+    const snapshot: PortfolioSnapshot = { ...snapshotWithoutHash, contentHash: sha256(snapshotWithoutHash) };
+    const entry: LedgerEntry = { entryId: `split-${command.portfolioId}-${nextVersion}`, portfolioId: command.portfolioId, type: 'SPLIT', securityId: command.securityId, quantity: adjustedQuantity, amount: '0', occurredAt: command.occurredAt, availableAt: command.availableAt, sourceRef: command.sourceRef, actorId: command.actorId, reason: command.reason, correlationId: command.correlationId };
+    this.versions.set(command.portfolioId, nextVersion);
+    this.entries.set(entry.entryId, entry);
+    this.snapshots.set(snapshot.snapshotId, snapshot);
+    this.idempotency.set(idempotencyKey, snapshot);
+    return snapshot;
+  }
 }
 
 function validateCommand(command: OpeningSnapshotCommand): void {
@@ -251,6 +289,11 @@ function validateCashDividendCommand(command: CashDividendCommand): void {
   if (decimalToNumber(command.cashPerShare) <= 0) throw new Error('cashPerShare must be positive');
   if (!Date.parse(command.occurredAt) || !Date.parse(command.availableAt) || new Date(command.availableAt) < new Date(command.occurredAt)) throw new Error('invalid corporate action event time');
 }
+function validateStockSplitCommand(command: StockSplitCommand): void {
+  if (!command.portfolioId || !command.securityId || !command.sourceRef || !command.actorId || !command.reason || !command.idempotencyKey) throw new Error('required corporate action field is missing');
+  if (!Number.isInteger(command.numerator) || !Number.isInteger(command.denominator) || command.numerator <= 0 || command.denominator <= 0) throw new Error('split ratio must use positive integers');
+  if (!Date.parse(command.occurredAt) || !Date.parse(command.availableAt) || new Date(command.availableAt) < new Date(command.occurredAt)) throw new Error('invalid corporate action event time');
+}
 
 function decimalToNumber(value: string): number {
   return Number(value);
@@ -272,6 +315,7 @@ function subtractDecimal(left: string, right: string): string { return scaledToD
 function multiplyDecimal(left: string, right: string): string { return scaledToDecimal((decimalToScaled(left) * decimalToScaled(right)) / decimalScale); }
 function isNegative(value: string): boolean { return decimalToScaled(value) < 0n; }
 function isZero(value: string): boolean { return decimalToScaled(value) === 0n; }
+function multiplyRatio(value: string, numerator: number, denominator: number): string { return scaledToDecimal((decimalToScaled(value) * BigInt(numerator)) / BigInt(denominator)); }
 
 function sha256(value: object): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');

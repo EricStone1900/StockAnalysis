@@ -1,4 +1,4 @@
-import { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
+import { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
@@ -102,6 +102,10 @@ export class PortfolioService {
       }
     }
     return snapshot;
+  }
+
+  async recordStockSplit(command: StockSplitCommand): Promise<PortfolioSnapshot> {
+    return this.ledger.recordStockSplit(command);
   }
 }
 

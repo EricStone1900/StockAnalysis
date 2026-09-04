@@ -72,4 +72,11 @@ describe('portfolio ledger opening snapshot', () => {
     const snapshot = ledger.recordCashDividend({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', cashPerShare: '0.25', occurredAt: '2026-09-03T04:00:00Z', availableAt: '2026-09-03T04:00:00Z', sourceRef: 'dividend-1', actorId: 'operator-1', reason: '现金分红', expectedVersion: 1, idempotencyKey: 'dividend-1' });
     expect(snapshot.cash).toBe('1025'); expect(snapshot.positions[0]?.quantity).toBe('100'); expect(snapshot.ledgerVersion).toBe(2);
   });
+
+  it('adjusts position quantity without changing cash for a stock split', () => {
+    const ledger = new PortfolioLedger();
+    ledger.importOpening(command({ cash: '1000', positions: [{ securityId: 'SSE:600000', quantity: '100' }] }));
+    const snapshot = ledger.recordStockSplit({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', numerator: 2, denominator: 1, occurredAt: '2026-09-03T05:00:00Z', availableAt: '2026-09-03T05:00:00Z', sourceRef: 'split-1', actorId: 'operator-1', reason: '二拆一', expectedVersion: 1, idempotencyKey: 'split-1' });
+    expect(snapshot.cash).toBe('1000'); expect(snapshot.positions[0]?.quantity).toBe('200'); expect(snapshot.ledgerVersion).toBe(2);
+  });
 });
