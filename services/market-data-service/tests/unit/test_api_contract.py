@@ -14,6 +14,7 @@ def test_openapi_exposes_stage_two_public_contracts() -> None:
     assert "/api/v1/calendars/{market}" in paths
     assert "/api/v1/data-versions" in paths
     assert "/api/v1/data-versions/latest" in paths
+    assert "/api/v1/prices/{symbol}" in paths
     assert "Idempotency-Key" in {item["name"] for item in paths["/api/v1/data-versions"]["post"]["parameters"]}
     assert "/internal/v1/jobs/import-investment-data" in paths
     assert {item["name"] for item in paths["/internal/v1/jobs/import-investment-data"]["post"]["parameters"]} == {

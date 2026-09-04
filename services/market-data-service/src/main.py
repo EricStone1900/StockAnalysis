@@ -18,6 +18,7 @@ from market_data.importing import (
 )
 from market_data.investment_data import InvestmentDataReleaseAdapter
 from market_data.nats_publisher import nats_jetstream_publisher
+from market_data.prices import PricePoint, VersionedPriceStore
 from market_data.publishing import DataVersionPublisher
 from market_data.repository import PostgresSourceLineageRepository, PostgresStatusBatchRepository
 from market_data.runtime import endpoint_reachable, environment_secret
@@ -28,6 +29,7 @@ from market_data.worker_executor import MultiprocessingWorkerExecutor
 
 app = FastAPI(title="market-data-service", version="0.1.0")
 service = MarketDataService()
+price_store = VersionedPriceStore()
 logger = logging.getLogger(__name__)
 
 
@@ -174,6 +176,14 @@ def get_security(symbol: str) -> Security:
 @app.get("/api/v1/securities/{symbol}/status")
 def get_status(symbol: str) -> dict[str, str]:
     return {"status": get_security(symbol).status}
+
+
+@app.get("/api/v1/prices/{symbol}", response_model=PricePoint)
+def get_price(symbol: str, dataVersion: str, asOf: date) -> PricePoint:
+    price = price_store.get(symbol, dataVersion, asOf)
+    if price is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="price not found for data version and date")
+    return price
 
 @app.get("/api/v1/calendars/{market}")
 def calendar(market: str, day: date) -> dict[str, object]:
