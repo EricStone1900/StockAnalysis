@@ -6,3 +6,24 @@ channels:
     messages:
       dataVersionPublished:
         payload: { $ref: '../schemas/domain-event-envelope.schema.json' }
+  stock.portfolio-risk.risk-evaluation.created.v1:
+    address: stock.portfolio-risk.risk-evaluation.created.v1
+    messages: { riskEvaluationCreated: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.decision-governance.trade-proposal.created.v1:
+    address: stock.decision-governance.trade-proposal.created.v1
+    messages: { tradeProposalCreated: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.decision-governance.risk-review.completed.v1:
+    address: stock.decision-governance.risk-review.completed.v1
+    messages: { riskReviewCompleted: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.decision-governance.approval.decided.v1:
+    address: stock.decision-governance.approval.decided.v1
+    messages: { approvalDecided: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.trade-execution.rebalance-batch.created.v1:
+    address: stock.trade-execution.rebalance-batch.created.v1
+    messages: { rebalanceBatchCreated: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.trade-execution.fill.recorded.v1:
+    address: stock.trade-execution.fill.recorded.v1
+    messages: { fillRecorded: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
+  stock.trade-execution.reconciliation.opened.v1:
+    address: stock.trade-execution.reconciliation.opened.v1
+    messages: { reconciliationOpened: { payload: { $ref: '../schemas/domain-event-envelope.schema.json' } } }
