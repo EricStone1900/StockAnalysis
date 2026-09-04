@@ -53,3 +53,19 @@ CREATE TABLE IF NOT EXISTS portfolio_snapshot_idempotency (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (portfolio_id, idempotency_key)
 );
+
+CREATE TABLE IF NOT EXISTS portfolio_valuations (
+  valuation_id TEXT PRIMARY KEY,
+  portfolio_id TEXT NOT NULL,
+  portfolio_snapshot_id TEXT NOT NULL REFERENCES portfolio_snapshots(snapshot_id),
+  ledger_version INTEGER NOT NULL,
+  market_data_version TEXT NOT NULL,
+  as_of TIMESTAMPTZ NOT NULL,
+  market_value TEXT NOT NULL CHECK (market_value ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
+  total_equity TEXT NOT NULL CHECK (total_equity ~ '^-?[0-9]+(\.[0-9]{1,8})?$'),
+  payload JSONB NOT NULL,
+  content_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (portfolio_snapshot_id, market_data_version, as_of)
+);
+CREATE INDEX IF NOT EXISTS portfolio_valuations_latest_idx ON portfolio_valuations (portfolio_id, as_of DESC);

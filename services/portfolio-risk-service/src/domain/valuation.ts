@@ -8,6 +8,7 @@ export interface PricePoint {
 }
 
 export interface PortfolioValuation {
+  readonly valuationId: string;
   readonly portfolioId: string;
   readonly portfolioSnapshotId: string;
   readonly ledgerVersion: number;
@@ -30,7 +31,7 @@ export function valuePortfolio(snapshot: PortfolioSnapshot, prices: readonly Pri
     return { securityId: position.securityId, marketValue: multiplyDecimal(position.quantity, price.close) };
   });
   const marketValue = positionValues.reduce((total, position) => addDecimal(total, position.marketValue), '0');
-  const withoutHash = { portfolioId: snapshot.portfolioId, portfolioSnapshotId: snapshot.snapshotId, ledgerVersion: snapshot.ledgerVersion, marketDataVersion, asOf, marketValue, totalEquity: addDecimal(snapshot.cash, marketValue), positionValues };
+  const withoutHash = { valuationId: `portfolio-valuation-${snapshot.snapshotId}-${marketDataVersion}-${asOf}`, portfolioId: snapshot.portfolioId, portfolioSnapshotId: snapshot.snapshotId, ledgerVersion: snapshot.ledgerVersion, marketDataVersion, asOf, marketValue, totalEquity: addDecimal(snapshot.cash, marketValue), positionValues };
   return { ...withoutHash, contentHash: createHash('sha256').update(JSON.stringify(withoutHash)).digest('hex') };
 }
 

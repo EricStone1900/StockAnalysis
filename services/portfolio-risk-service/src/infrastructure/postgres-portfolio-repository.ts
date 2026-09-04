@@ -1,4 +1,5 @@
 import type { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioSnapshot, ReversalCommand, StockSplitCommand } from '../domain/portfolio.js';
+import type { PortfolioValuation } from '../domain/valuation.js';
 
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(sql: string, parameters?: readonly unknown[]): Promise<{ rows: T[] }>;
@@ -150,6 +151,15 @@ export class PostgresPortfolioRepository {
       await connection.query('COMMIT');
     } catch (error) { await connection.query('ROLLBACK'); throw error; }
     finally { connection.release?.(); }
+  }
+
+  async appendValuation(valuation: PortfolioValuation): Promise<void> {
+    await this.client.query(
+      `INSERT INTO portfolio_valuations (valuation_id, portfolio_id, portfolio_snapshot_id, ledger_version, market_data_version, as_of, market_value, total_equity, payload, content_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+       ON CONFLICT (portfolio_snapshot_id, market_data_version, as_of) DO NOTHING`,
+      [valuation.valuationId, valuation.portfolioId, valuation.portfolioSnapshotId, valuation.ledgerVersion, valuation.marketDataVersion, valuation.asOf, valuation.marketValue, valuation.totalEquity, JSON.stringify(valuation), valuation.contentHash],
+    );
   }
 }
 

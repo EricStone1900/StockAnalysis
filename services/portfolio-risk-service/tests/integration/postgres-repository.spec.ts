@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`, `${portfolioId}-split`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`, `${portfolioId}-split`, `${portfolioId}-valuation`]) { await pool.query('DELETE FROM portfolio_valuations WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -86,5 +86,16 @@ suite('PostgreSQL portfolio persistence', () => {
     expect(snapshot).toMatchObject({ cash: '1000', ledgerVersion: 2 }); expect(snapshot.positions[0]?.quantity).toBe('200');
     const entry = await pool.query<{ entry_type: string; quantity: string }>('SELECT entry_type, quantity FROM portfolio_ledger_entries WHERE portfolio_id = $1 AND entry_type = $2', [splitPortfolioId, 'SPLIT']);
     expect(entry.rows[0]).toEqual({ entry_type: 'SPLIT', quantity: '200' });
+  });
+
+  it('persists a valuation bound to snapshot and market data version', async () => {
+    const valuationPortfolioId = `${portfolioId}-valuation`;
+    const repository = new PostgresPortfolioRepository(pool);
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await service.importOpening({ ...command, portfolioId: valuationPortfolioId, cash: '100', positions: [{ securityId: 'SSE:600000', quantity: '10' }], idempotencyKey: 'valuation-opening' });
+    const valuation = await service.valueLatest(valuationPortfolioId, [{ securityId: 'SSE:600000', close: '12.34', asOf: '2026-09-03T01:00:00Z' }], 'market-v1', '2026-09-03T01:00:00Z', 5);
+    expect(valuation.totalEquity).toBe('223.4');
+    const stored = await pool.query<{ market_data_version: string; total_equity: string }>('SELECT market_data_version, total_equity FROM portfolio_valuations WHERE portfolio_id = $1', [valuationPortfolioId]);
+    expect(stored.rows[0]).toEqual({ market_data_version: 'market-v1', total_equity: '223.4' });
   });
 });
