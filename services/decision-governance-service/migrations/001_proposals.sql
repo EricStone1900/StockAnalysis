@@ -34,3 +34,14 @@ CREATE TABLE IF NOT EXISTS decision_budget_reservations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS decision_budget_active_batch_idx ON decision_budget_reservations (portfolio_id, trading_date, batch_number) WHERE status = 'RESERVED' AND batch_number > 0;
+
+CREATE TABLE IF NOT EXISTS governance_outbox_events (
+  event_id TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  aggregate_id TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  available_at TIMESTAMPTZ NOT NULL,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS governance_outbox_pending_idx ON governance_outbox_events (available_at) WHERE published_at IS NULL;
