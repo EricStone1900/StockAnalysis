@@ -171,7 +171,12 @@ export class PostgresPortfolioRepository {
     await connection.query('BEGIN');
     try {
       const inserted = await connection.query(`INSERT INTO portfolio_risk_evaluations (evaluation_id, portfolio_id, proposal_id, policy_version, verdict, payload, content_hash) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (portfolio_id, proposal_id, policy_version) DO NOTHING RETURNING evaluation_id`, [evaluation.evaluationId, portfolioId, evaluation.proposalId, evaluation.policyVersion, evaluation.verdict, JSON.stringify(evaluation), evaluation.evaluationId]);
-      if (inserted.rows.length > 0) await connection.query(`INSERT INTO portfolio_outbox_events (event_id, subject, aggregate_id, payload, available_at) VALUES ($1, $2, $3, $4::jsonb, $5) ON CONFLICT (event_id) DO NOTHING`, [randomUUID(), 'stock.portfolio-risk.risk-evaluation.created.v1', portfolioId, JSON.stringify({ evaluation }), new Date().toISOString()]);
+      if (inserted.rows.length > 0) {
+        const eventId = randomUUID();
+        const occurredAt = new Date().toISOString();
+        const event = { eventId, subject: 'stock.portfolio-risk.risk-evaluation.created.v1', schemaVersion: 1, occurredAt, availableAt: occurredAt, producer: 'portfolio-risk-service', correlationId: evaluation.correlationId ?? evaluation.proposalId, payload: { evaluation } };
+        await connection.query(`INSERT INTO portfolio_outbox_events (event_id, subject, aggregate_id, payload, available_at) VALUES ($1, $2, $3, $4::jsonb, $5) ON CONFLICT (event_id) DO NOTHING`, [eventId, event.subject, portfolioId, JSON.stringify(event), occurredAt]);
+      }
       await connection.query('COMMIT');
     } catch (error) { await connection.query('ROLLBACK'); throw error; }
     finally { connection.release?.(); }

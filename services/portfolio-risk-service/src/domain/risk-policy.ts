@@ -28,6 +28,7 @@ export interface RiskEvaluationInput {
   readonly decisionBudget: { readonly rebalanceBatchesToday: number };
   readonly peakEquity: string;
   readonly policy: RiskPolicy;
+  readonly correlationId?: string;
 }
 
 export interface RiskRuleResult {
@@ -47,6 +48,7 @@ export interface RiskEvaluation {
   readonly rules: readonly RiskRuleResult[];
   readonly before: { readonly cash: string; readonly totalEquity: string };
   readonly projectedAfter: { readonly cash: string; readonly totalEquity: string };
+  readonly correlationId?: string;
 }
 
 const SCALE = 100_000_000n;
@@ -114,5 +116,5 @@ export function evaluateRisk(input: RiskEvaluationInput): RiskEvaluation {
     rules.push(rule(policy, `position:${securityId}`, fromScaled(value), policy.maxPositionWeight, value <= (equityForWeight * toScaled(policy.maxPositionWeight)) / SCALE, 'MAX_POSITION_WEIGHT'));
   }
   rules.push(rule(policy, 'total-position-weight', projectedMarketValue, policy.maxTotalPositionWeight, toScaled(projectedMarketValue) <= (equityForWeight * toScaled(policy.maxTotalPositionWeight)) / SCALE, 'MAX_TOTAL_POSITION_WEIGHT'));
-  return { evaluationId: `risk-evaluation-${input.proposalId}-${policy.policyVersion}`, proposalId: input.proposalId, policyVersion: policy.policyVersion, verdict: rules.every((item) => item.verdict === 'PASS') ? 'PASS' : 'REJECT', rules, before: { cash: portfolio.cash, totalEquity: beforeEquity }, projectedAfter: { cash: projectedCash.value, totalEquity: projectedEquity } };
+  return { evaluationId: `risk-evaluation-${input.proposalId}-${policy.policyVersion}`, proposalId: input.proposalId, policyVersion: policy.policyVersion, verdict: rules.every((item) => item.verdict === 'PASS') ? 'PASS' : 'REJECT', rules, before: { cash: portfolio.cash, totalEquity: beforeEquity }, projectedAfter: { cash: projectedCash.value, totalEquity: projectedEquity }, correlationId: input.correlationId };
 }
