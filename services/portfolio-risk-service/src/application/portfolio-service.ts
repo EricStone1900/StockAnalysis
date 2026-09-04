@@ -1,4 +1,4 @@
-import { ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
+import { CashDividendCommand, ConfirmedFillCommand, LedgerEntry, OpeningSnapshotCommand, PortfolioLedger, PortfolioSnapshot, ReversalCommand } from '../domain/portfolio.js';
 interface PortfolioPersistence {
   findByIdempotency(portfolioId: string, idempotencyKey: string): Promise<PortfolioSnapshot | undefined>;
   latest(portfolioId: string): Promise<PortfolioSnapshot | undefined>;
@@ -7,6 +7,7 @@ interface PortfolioPersistence {
   appendOpening(command: OpeningSnapshotCommand, snapshot: PortfolioSnapshot): Promise<void>;
   appendReversal?(command: ReversalCommand, entry: LedgerEntry): Promise<void>;
   appendConfirmedFill?(command: ConfirmedFillCommand, snapshot: PortfolioSnapshot): Promise<void>;
+  appendCashDividend?(command: CashDividendCommand, snapshot: PortfolioSnapshot): Promise<void>;
 }
 
 export class PortfolioService {
@@ -69,6 +70,28 @@ export class PortfolioService {
     const snapshot = this.ledger.recordConfirmedFill(command);
     if (this.repository?.appendConfirmedFill) {
       try { await this.repository.appendConfirmedFill(command, snapshot); }
+      catch (error) {
+        if (isUniqueViolation(error)) {
+          const repeated = await readIdempotentWithRetry(this.repository, command.portfolioId, command.idempotencyKey);
+          if (repeated) return repeated;
+          throw new Error('ledger version conflict');
+        }
+        throw error;
+      }
+    }
+    return snapshot;
+  }
+
+  async recordCashDividend(command: CashDividendCommand): Promise<PortfolioSnapshot> {
+    if (this.repository) {
+      const repeated = await this.repository.findByIdempotency(command.portfolioId, command.idempotencyKey);
+      if (repeated) return repeated;
+      const latest = await this.repository.latest(command.portfolioId);
+      if (latest) this.ledger.restoreSnapshot(latest);
+    }
+    const snapshot = this.ledger.recordCashDividend(command);
+    if (this.repository?.appendCashDividend) {
+      try { await this.repository.appendCashDividend(command, snapshot); }
       catch (error) {
         if (isUniqueViolation(error)) {
           const repeated = await readIdempotentWithRetry(this.repository, command.portfolioId, command.idempotencyKey);

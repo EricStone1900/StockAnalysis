@@ -65,4 +65,11 @@ describe('portfolio ledger opening snapshot', () => {
     const ledger = new PortfolioLedger(); ledger.importOpening(command({ positions: [] }));
     expect(() => ledger.recordConfirmedFill({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', side: 'SELL', quantity: '1', price: '1', fee: '0', occurredAt: '2026-09-03T02:00:00Z', availableAt: '2026-09-03T02:00:00Z', sourceRef: 'fill', actorId: 'operator-1', reason: '卖出', expectedVersion: 1, idempotencyKey: 'fill' })).toThrow('exceeds');
   });
+
+  it('records a cash dividend from the current position quantity', () => {
+    const ledger = new PortfolioLedger();
+    ledger.importOpening(command({ cash: '1000', positions: [{ securityId: 'SSE:600000', quantity: '100' }] }));
+    const snapshot = ledger.recordCashDividend({ portfolioId: 'portfolio-1', securityId: 'SSE:600000', cashPerShare: '0.25', occurredAt: '2026-09-03T04:00:00Z', availableAt: '2026-09-03T04:00:00Z', sourceRef: 'dividend-1', actorId: 'operator-1', reason: '现金分红', expectedVersion: 1, idempotencyKey: 'dividend-1' });
+    expect(snapshot.cash).toBe('1025'); expect(snapshot.positions[0]?.quantity).toBe('100'); expect(snapshot.ledgerVersion).toBe(2);
+  });
 });

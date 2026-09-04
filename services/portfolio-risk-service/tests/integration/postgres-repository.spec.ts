@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`]) { await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -64,5 +64,16 @@ suite('PostgreSQL portfolio persistence', () => {
     await expect(repository.latest(fillPortfolioId)).resolves.toEqual(snapshot);
     const count = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM portfolio_ledger_entries WHERE portfolio_id = $1', [fillPortfolioId]);
     expect(count.rows[0]?.count).toBe('3');
+  });
+
+  it('atomically persists a cash dividend and derived snapshot', async () => {
+    const dividendPortfolioId = `${portfolioId}-dividend`;
+    const repository = new PostgresPortfolioRepository(pool);
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await service.importOpening({ ...command, portfolioId: dividendPortfolioId, cash: '1000', positions: [{ securityId: 'SSE:600000', quantity: '100' }], idempotencyKey: 'dividend-opening' });
+    const snapshot = await service.recordCashDividend({ portfolioId: dividendPortfolioId, securityId: 'SSE:600000', cashPerShare: '0.25', occurredAt: '2026-09-03T04:00:00Z', availableAt: '2026-09-03T04:00:00Z', sourceRef: 'dividend-test', actorId: 'test', reason: 'cash dividend', expectedVersion: 1, idempotencyKey: 'dividend-1' });
+    expect(snapshot).toMatchObject({ cash: '1025', ledgerVersion: 2 });
+    const entry = await pool.query<{ entry_type: string; amount: string }>('SELECT entry_type, amount FROM portfolio_ledger_entries WHERE portfolio_id = $1 AND entry_type = $2', [dividendPortfolioId, 'DIVIDEND']);
+    expect(entry.rows[0]).toEqual({ entry_type: 'DIVIDEND', amount: '25' });
   });
 });
