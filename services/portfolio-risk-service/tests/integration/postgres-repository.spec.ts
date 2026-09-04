@@ -20,7 +20,7 @@ suite('PostgreSQL portfolio persistence', () => {
   beforeAll(async () => {
     await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
   });
-  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`, `${portfolioId}-split`, `${portfolioId}-valuation`]) { await pool.query('DELETE FROM portfolio_valuations WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
+  afterAll(async () => { for (const id of [portfolioId, concurrentCommand.portfolioId, `${portfolioId}-lock`, `${portfolioId}-fill`, `${portfolioId}-dividend`, `${portfolioId}-split`, `${portfolioId}-valuation`, `${portfolioId}-risk`]) { await pool.query('DELETE FROM portfolio_outbox_events WHERE aggregate_id = $1', [id]); await pool.query('DELETE FROM portfolio_risk_evaluations WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_valuations WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshot_idempotency WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_snapshots WHERE portfolio_id = $1', [id]); await pool.query('DELETE FROM portfolio_ledger_entries WHERE portfolio_id = $1', [id]); } await pool.end(); });
 
   it('persists and reads an immutable opening snapshot idempotently', async () => {
     const snapshot = new PortfolioLedger().importOpening(command);
@@ -97,5 +97,20 @@ suite('PostgreSQL portfolio persistence', () => {
     expect(valuation.totalEquity).toBe('223.4');
     const stored = await pool.query<{ market_data_version: string; total_equity: string }>('SELECT market_data_version, total_equity FROM portfolio_valuations WHERE portfolio_id = $1', [valuationPortfolioId]);
     expect(stored.rows[0]).toEqual({ market_data_version: 'market-v1', total_equity: '223.4' });
+  });
+
+  it('atomically persists risk evaluation and its outbox event idempotently', async () => {
+    const riskPortfolioId = `${portfolioId}-risk`;
+    const repository = new PostgresPortfolioRepository(pool);
+    const service = new PortfolioService(new PortfolioLedger(), repository);
+    await service.importOpening({ ...command, portfolioId: riskPortfolioId, cash: '1000', positions: [{ securityId: 'SSE:600000', quantity: '10' }], idempotencyKey: 'risk-opening' });
+    const input = { portfolioId: riskPortfolioId, proposalId: 'proposal-risk-1', reason: 'NORMAL', legs: [{ securityId: 'SSE:600000' as const, side: 'HOLD' as const, quantity: '0', price: '10' }], prices: { 'SSE:600000': '10' }, decisionBudget: { rebalanceBatchesToday: 0 }, peakEquity: '1100', policy: { policyVersion: 'policy-v1', maxPositionWeight: '0.9', maxTotalPositionWeight: '0.9', minCash: '0', maxTurnover: '500', maxDailyRebalanceBatches: 2, allowedSecondBatchReasons: [], maxDrawdown: '1000', paused: false } };
+    const first = await service.evaluateRisk(input);
+    const second = await service.evaluateRisk(input);
+    expect(second.evaluationId).toBe(first.evaluationId);
+    const evaluations = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM portfolio_risk_evaluations WHERE portfolio_id = $1', [riskPortfolioId]);
+    const events = await pool.query<{ count: string }>('SELECT count(*)::text AS count FROM portfolio_outbox_events WHERE aggregate_id = $1', [riskPortfolioId]);
+    expect(evaluations.rows[0]?.count).toBe('1');
+    expect(events.rows[0]?.count).toBe('1');
   });
 });
