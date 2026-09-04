@@ -7,6 +7,7 @@
 - 并发expectedVersion、重复命令和重复Fill。
 - 行情缺失、陈旧、超时和恢复。
 - OpenAPI、Portfolio/Risk事件、Outbox/Inbox重放。
+- RiskEvaluation 与 Outbox 同事务提交、幂等去重、领取租约、发布失败重试及 Worker 启停生命周期。
 - API契约必须核对[05-01接口契约](./02-api-contract.md)：路径、字段、错误码、幂等和版本语义保持一致。
 - 服务级集成测试需关闭并重新创建 Nest 应用后继续写入，确认数据库快照和 `ledgerVersion` 跨重启恢复。
 - `/ready` 在数据库模式执行 `SELECT 1` 探测；数据库不可用必须显示 `DOWN`，内存模式显示 `NOT_CONFIGURED`，不可将依赖故障伪装为 `UP`。
