@@ -4,3 +4,5 @@ import type { PricePoint } from '../domain/valuation.js';
 export interface MarketPriceReader {
   readPrices(input: { securityIds: readonly string[]; marketDataVersion: string; asOf: string }): Promise<readonly PricePoint[]>;
 }
+
+export { GeneratedMarketPriceReader } from './generated-market-price-reader.js';

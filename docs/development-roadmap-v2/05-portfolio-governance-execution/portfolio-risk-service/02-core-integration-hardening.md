@@ -8,7 +8,7 @@
 
 拆股/送股比例调整已支持`numerator/denominator`正整数比例并生成`SPLIT`流水：只调整目标证券的数量和可用数量，不改变现金；同样以 PostgreSQL 事务写入流水、快照与幂等记录，接口为`POST /internal/v1/reconciliation/apply-stock-split`。
 
-估值领域切片已支持以`marketDataVersion`、价格`asOf`和持仓快照版本计算持仓市值与总权益；任一持仓缺价、价格非正或超过最大允许陈旧时间均失败关闭。估值结果已落入不可变`portfolio_valuations`，以快照、行情版本和时间唯一约束防止重复。已在`packages/contracts/openapi/market-data.v1.yaml`冻结价格查询契约，market-data 已提供按版本和日期精确查询的只读端点；生成 Client 和真实 Artifact 索引接入仍待完成。
+估值领域切片已支持以`marketDataVersion`、价格`asOf`和持仓快照版本计算持仓市值与总权益；任一持仓缺价、价格非正或超过最大允许陈旧时间均失败关闭。估值结果已落入不可变`portfolio_valuations`，以快照、行情版本和时间唯一约束防止重复。已在`packages/contracts/openapi/market-data.v1.yaml`冻结价格查询契约，market-data 已提供按版本和日期精确查询的只读端点。`@stock/contracts`现在通过生成脚本输出`GeneratedMarketDataClient`，组合服务使用`GeneratedMarketPriceReader`适配器校验证券和数据版本；真实 Artifact 索引接入仍待完成。
 
 ## 实施步骤
 
@@ -16,7 +16,7 @@
 2. 实现版本化RiskPolicy：单股、行业、总仓位、现金、换手、`maxDailyRebalanceBatches`、`allowedSecondBatchReasons`、回撤和暂停规则。
 3. `evaluate(proposal, portfolioSnapshot, decisionBudgetSnapshot, marketSnapshot, policy)`一次评估完整Leg集合，返回PASS/REJECT、逐Leg结果和组合before/projectedAfter。
 4. 每日允许0～2批是硬上限；周交易1～2次只是指标；HOLD不计批次。最终并发预留由decision-governance执行。
-5. 接market-data生成Client；故障时明确STALE或失败关闭。
+5. 由`@stock/contracts`生成market-data Client，并通过`GeneratedMarketPriceReader`接入估值；故障时明确STALE或失败关闭。
 6. 发布PortfolioSnapshot和RiskEvaluation事件，写入Outbox。
 
 ```ts
