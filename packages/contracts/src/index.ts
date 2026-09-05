@@ -12,3 +12,4 @@ export {
 export { InMemoryInbox } from './messaging.js';
 export { FakeStage05Publisher, type ApprovalDecidedPayload, type FillRecordedPayload, type RiskEvaluationCreatedPayload, type Stage05Event } from './stage05.js';
 export type { OutboxWriter, Transaction, UnitOfWork } from './messaging.js';
+export type { ExecutionAuthorizationGrant, ExecutionLeg, ResourceReservation, ResourceReservationRequest, ResourceReservationStatus } from './execution-authorization.js';

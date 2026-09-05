@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-docker compose -f "$root_dir/infra/compose/docker-compose.yml" ps
+exec bash "$root_dir/scripts/local-stack.sh" status infra

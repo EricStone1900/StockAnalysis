@@ -115,6 +115,10 @@ RiskPolicy：
 
 ## 8. 数据一致性
 
+- 根据[ADR-020](../adr/ADR-020-execution-consistency-and-delivery-gates.md)，本服务还拥有现金、可卖数量和在途风险占用。次数预算不能替代资源预留。
+- 初期同一组合仅允许一个未结束批次；同一事务验证账本版本并预留资源，全部账本写入共享组合锁。UNKNOWN继续占用，禁止按超时释放；买入不能使用未确认卖出所得。
+- 详细状态、授权依赖及验收见[执行一致性整改](../../development-roadmap-v2/05-portfolio-governance-execution/07-execution-consistency-remediation.md)。当前该能力仍待持久化与真实链路集成，不能据此宣称已经实现。
+
 - 人工执行阶段以“人工确认成交记录”为持仓变更来源。
 - 自动交易阶段以券商成交回报为来源，并通过日终对账纠正差异。
 - 行情估值和持仓数量使用不同版本字段，不混为一体。

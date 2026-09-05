@@ -22,3 +22,7 @@
 - 不共享业务数据库或ORM Entity。
 - 不让模板框架依赖具体领域模块。
 
+
+## ADR-020整改增量
+
+遵循[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)。本地infra/research/manual-services/full-demo分组、配置缺失检查和不覆盖Secret；记录Mac资源实测。 保留服务S0～S6，不变更事实所有权，不开放生产自动交易。前置依赖未具备时明确阻塞对应真实能力；允许独立验证的切片继续执行。

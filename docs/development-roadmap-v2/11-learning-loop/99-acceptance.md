@@ -26,3 +26,7 @@
 - Mac 验证已通过 Python Ruff、mypy、Outcome 测试，以及 Agent 服务 ESLint、TypeScript 和 43 项单元测试。
 - 已覆盖确定性数值计算、未来数据隔离、成功/反例配额、最小样本、独立验证、Shadow、人工批准、激活和暂停。
 - 阶段11尚未最终验收，必须完成 `05-ubuntu-e2e-verification.md` 并记录数据版本、策略版本、实验版本、Artifact Hash 和签署人。
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

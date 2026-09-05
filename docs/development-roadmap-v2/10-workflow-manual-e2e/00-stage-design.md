@@ -20,3 +20,7 @@
 Temporal管理时间、顺序、重试和人工等待，不拥有领域事实；Workflow代码不得直接访问数据库、NATS、HTTP SDK、模型、随机数或系统当前时间。
 
 组合调仓批次遵循[ADR-010](../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)。本阶段完成每日0～2批人工闭环和联合历史回放，但不启用自动交易。
+
+## ADR-020整改增量
+
+遵循[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)。全部Workflow导出、显式demo模式、真实Activity绑定和接受不确定时保留预算；拒绝以Fake结果代替真实Temporal恢复。 保留服务S0～S6，不变更事实所有权，不开放生产自动交易。前置依赖未具备时明确阻塞对应真实能力；允许独立验证的切片继续执行。

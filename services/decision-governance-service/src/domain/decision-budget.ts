@@ -5,6 +5,8 @@ export interface Reservation { readonly reservationId: string; readonly portfoli
 export class DecisionBudgetReservation {
   private readonly reservations = new Map<string, Reservation>();
   private readonly idempotency = new Map<string, Reservation>();
+  public restore(reservation: Reservation): void { this.reservations.set(reservation.reservationId, reservation); }
+  public get(reservationId: string): Reservation | undefined { return this.reservations.get(reservationId); }
   public reserve(input: { reservationId: string; portfolioId: string; tradingDate: string; reason: string; proposalId: string; kind: 'HOLD' | 'REBALANCE'; idempotencyKey: string }, policy: DecisionBudgetPolicy): Reservation {
     const repeated = this.idempotency.get(input.idempotencyKey); if (repeated) return repeated;
     if (input.kind === 'HOLD') { const released: Reservation = { reservationId: input.reservationId, portfolioId: input.portfolioId, tradingDate: input.tradingDate, reason: input.reason, batchNumber: 0, proposalId: input.proposalId, status: 'RELEASED' }; this.idempotency.set(input.idempotencyKey, released); return released; }

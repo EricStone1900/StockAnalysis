@@ -49,6 +49,7 @@ export class PostgresPortfolioRepository {
     const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
     await connection.query('BEGIN');
     try {
+      await this.lockPortfolio(connection, command.portfolioId);
       await connection.query(
       `INSERT INTO portfolio_ledger_entries
         (entry_id, portfolio_id, entry_type, amount, occurred_at, available_at, source_ref, actor_id, reason, correlation_id)
@@ -89,6 +90,7 @@ export class PostgresPortfolioRepository {
     const entryId = `ledger-entry-${command.portfolioId}-${snapshot.ledgerVersion}`;
     await connection.query('BEGIN');
     try {
+      await this.lockPortfolio(connection, command.portfolioId);
       await connection.query(
         `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
@@ -119,6 +121,7 @@ export class PostgresPortfolioRepository {
     if (!position) throw new Error('cash dividend position is missing from snapshot');
     await connection.query('BEGIN');
     try {
+      await this.lockPortfolio(connection, command.portfolioId);
       await connection.query(
         `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
          VALUES ($1, $2, 'DIVIDEND', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
@@ -141,6 +144,7 @@ export class PostgresPortfolioRepository {
     if (!position) throw new Error('stock split position is missing from snapshot');
     await connection.query('BEGIN');
     try {
+      await this.lockPortfolio(connection, command.portfolioId);
       await connection.query(
         `INSERT INTO portfolio_ledger_entries (entry_id, portfolio_id, entry_type, security_id, quantity, amount, occurred_at, available_at, source_ref, actor_id, reason, idempotency_key, correlation_id)
          VALUES ($1, $2, 'SPLIT', $3, $4, '0', $5, $6, $7, $8, $9, $10, $11)`,
@@ -170,6 +174,7 @@ export class PostgresPortfolioRepository {
     const connection: TransactionClient = 'connect' in this.client ? await (this.client as PoolClient).connect() : this.client;
     await connection.query('BEGIN');
     try {
+      await this.lockPortfolio(connection, portfolioId);
       const inserted = await connection.query(`INSERT INTO portfolio_risk_evaluations (evaluation_id, portfolio_id, proposal_id, policy_version, verdict, payload, content_hash) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7) ON CONFLICT (portfolio_id, proposal_id, policy_version) DO NOTHING RETURNING evaluation_id`, [evaluation.evaluationId, portfolioId, evaluation.proposalId, evaluation.policyVersion, evaluation.verdict, JSON.stringify(evaluation), evaluation.evaluationId]);
       if (inserted.rows.length > 0) {
         const eventId = randomUUID();
@@ -192,6 +197,10 @@ export class PostgresPortfolioRepository {
 
   async markOutboxPublished(eventId: string): Promise<void> {
     await this.client.query('UPDATE portfolio_outbox_events SET published_at = now() WHERE event_id = $1 AND published_at IS NULL', [eventId]);
+  }
+
+  private async lockPortfolio(connection: TransactionClient, portfolioId: string): Promise<void> {
+    await connection.query("SELECT pg_advisory_xact_lock(hashtext('portfolio-resource:' || $1))", [portfolioId]);
   }
 }
 

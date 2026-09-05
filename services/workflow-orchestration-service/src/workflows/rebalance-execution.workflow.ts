@@ -19,7 +19,7 @@ export async function rebalanceExecutionWorkflow(input: RebalanceExecutionReques
     if (fills.result.fillStatus === 'UNKNOWN') return validateRebalanceResult('UNKNOWN', [reservation, batch, intents, fills]);
     return validateRebalanceResult(fills.result.fillStatus === 'PARTIAL' ? 'PARTIAL' : 'COMPLETED', [reservation, batch, intents, fills]);
   } catch {
-    const released = await activities.releaseBudget(request);
-    return validateRebalanceResult('RELEASED', [reservation, released]);
+    // 请求异常不证明未接受；接受后创建Intent/回填失败同样不能释放预算。
+    return validateRebalanceResult('UNKNOWN', [reservation]);
   }
 }

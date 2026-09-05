@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, Injectable, Module, NotFoundException, OnApplicationShutdown, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, Headers, Injectable, Module, NotFoundException, OnApplicationShutdown, Param, Post, UnauthorizedException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -10,6 +10,9 @@ import { PortfolioService } from '../application/portfolio-service.js';
 import type { RiskEvaluationInput } from '../domain/risk-policy.js';
 import { PostgresPortfolioRepository } from '../infrastructure/postgres-portfolio-repository.js';
 import { OutboxWorkerLifecycle } from '../application/outbox-publisher.js';
+import { ResourceReservationService } from '../application/resource-reservation-service.js';
+import { PostgresResourceReservationRepository } from '../infrastructure/postgres-resource-reservation-repository.js';
+import type { ResourceReservationRequest, ResourceReservationStatus } from '@stock/contracts';
 
 const serviceName = 'portfolio-risk-service';
 const databasePool = process.env.PORTFOLIO_DATABASE_URL ? new Pool({ connectionString: process.env.PORTFOLIO_DATABASE_URL, max: 5 }) : undefined;
@@ -132,8 +135,28 @@ function createPortfolioService(): PortfolioService {
   return new PortfolioService(new PortfolioLedger(), new PostgresPortfolioRepository(databasePool ?? new Pool({ connectionString: databaseUrl, max: 5 })));
 }
 const portfolioService = createPortfolioService();
+const resourceReservationService = new ResourceReservationService({ latest: (portfolioId) => portfolioService.latest(portfolioId) }, databasePool ? new PostgresResourceReservationRepository(databasePool) : undefined);
+@Injectable() class PortfolioInternalTokenGuard { check(token: string | undefined): void { const expected = process.env.PORTFOLIO_INTERNAL_TOKEN; if (!expected || token !== expected) throw new UnauthorizedException('invalid portfolio service identity'); } }
+@Controller('/internal/v1/portfolio-reservations')
+export class ResourceReservationController {
+  constructor(private readonly guard = new PortfolioInternalTokenGuard()) {}
+  @Post()
+  async reserve(@Headers('Idempotency-Key') idempotencyKey: string | undefined, @Headers('x-service-token') serviceToken: string | undefined, @Body() body: ResourceReservationRequest) {
+    this.guard.check(serviceToken);
+    try { if (!idempotencyKey || idempotencyKey !== body.idempotencyKey) throw new BadRequestException('Idempotency-Key must match body.idempotencyKey'); return await resourceReservationService.reserve(body); }
+    catch (error) { if (error instanceof Error && /conflict|active|insufficient/.test(error.message)) throw new ConflictException(error.message); throw new BadRequestException(error instanceof Error ? error.message : 'invalid resource reservation'); }
+  }
+  @Post(':reservationId/status')
+  async transition(@Param('reservationId') reservationId: string, @Headers('x-service-token') serviceToken: string | undefined, @Body() body: { status: ResourceReservationStatus }) {
+    this.guard.check(serviceToken);
+    try { return await resourceReservationService.transition(reservationId, body.status); }
+    catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'invalid resource reservation transition'); }
+  }
+  @Get(':reservationId')
+  async get(@Param('reservationId') reservationId: string, @Headers('x-service-token') serviceToken: string | undefined) { this.guard.check(serviceToken); const reservation = await resourceReservationService.get(reservationId); if (!reservation) throw new NotFoundException('resource reservation not found'); return reservation; }
+}
 export class AppModule {}
-Module({ controllers: [HealthController, PortfolioController, ReconciliationController], providers: [DatabaseLifecycle, OutboxWorkerLifecycle] })(AppModule);
+Module({ controllers: [HealthController, PortfolioController, ReconciliationController, ResourceReservationController], providers: [DatabaseLifecycle, OutboxWorkerLifecycle] })(AppModule);
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   await migratePortfolioDatabase();
@@ -147,7 +170,7 @@ async function migratePortfolioDatabase(): Promise<void> {
   if (!databaseUrl) return;
   const pool = new Pool({ connectionString: databaseUrl, max: 1 });
   try {
-    await pool.query(await readFile(new URL('../../migrations/001_portfolio_ledger.sql', import.meta.url), 'utf8'));
+    for (const migration of ['001_portfolio_ledger.sql', '002_resource_reservations.sql']) await pool.query(await readFile(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));
   } finally {
     await pool.end();
   }

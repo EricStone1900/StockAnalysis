@@ -2,7 +2,7 @@
 
 ## 项目结构与模块组织
 
-本仓库保存股票分析平台的架构设计与交付规划，当前尚未包含应用源码或自动化测试套件。
+本仓库包含股票分析平台的架构设计、交付规划、`services/`微服务、`apps/web/`前端、`packages/`共享包和就近测试。
 
 - `docs/architecture/`：系统级设计、服务边界及各服务规格；从 `docs/architecture/stock-analysis-agent-system-design.md` 开始了解整体架构。
 - `docs/development-phases/`：按能力域划分的原始分阶段实施计划。
@@ -12,14 +12,14 @@
 
 ## 文档工作流
 
-当前没有构建、本地运行、格式化或自动测试命令。提交前使用以下 Git 命令检查文档变更：
+Node依赖使用`pnpm install --frozen-lockfile`安装，运行约定的pnpm分层检查。Python服务在服务目录使用`uv sync --frozen`及约定检查。Mac本地入口为`bash scripts/local-stack.sh`；执行整改专项为`bash scripts/verify-execution-hardening.sh`，必须配置隔离测试数据库。提交前检查文档变更：
 
 ```sh
 git diff --check       # 检查空白字符错误
 git diff -- docs/      # 审阅文档改动
 ```
 
-使用相对 Markdown 链接，并确认目标路径存在。未来加入实现代码时，应在本文档补充安装、检查、测试和运行命令。
+使用相对 Markdown 链接，并确认目标路径存在。具体服务启动和验收范围以服务README及当前整改记录为准，不得将Fake测试或历史人工确认提升为当前真实E2E通过。
 
 ## 阶段与服务开发要求
 

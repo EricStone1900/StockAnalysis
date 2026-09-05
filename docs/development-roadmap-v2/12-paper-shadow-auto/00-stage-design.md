@@ -20,3 +20,7 @@
 - Paper/Shadow环境与生产账户、Secret、数据库和网络隔离。
 - 自动交易Feature Flag默认关闭，开启需要独立审批。
 - RebalanceBatch、预算预留和OrderIntent父子状态语义保持与人工环境一致，不因自动化重新定义批次计数。
+
+## ADR-020整改增量
+
+遵循[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)。隔离Paper可前置服务于M2/M3；真实券商开关仍关闭，学习能力不替代资金、授权、UNKNOWN及发布门禁。 保留服务S0～S6，不变更事实所有权，不开放生产自动交易。前置依赖未具备时明确阻塞对应真实能力；允许独立验证的切片继续执行。

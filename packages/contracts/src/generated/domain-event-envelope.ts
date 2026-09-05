@@ -8,5 +8,7 @@ export interface DomainEventEnvelope {
   producer: string;
   correlationId: string;
   causationId?: string;
+  aggregateId?: string;
+  aggregateVersion?: number;
   payload: Record<string, unknown>;
 }

@@ -18,3 +18,10 @@ coverage
 *.log
 tmp
 utput
+.env
+.env.*
+**/.env
+**/.env.*
+infra/compose/secrets
+.codex
+.agents

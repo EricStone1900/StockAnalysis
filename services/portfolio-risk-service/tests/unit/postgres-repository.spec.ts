@@ -8,7 +8,8 @@ describe('PostgresPortfolioRepository', () => {
   it('uses parameterized queries and persists the immutable payload', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [] });
     await new PostgresPortfolioRepository({ query }).appendOpening(command, snapshot);
-    expect(query).toHaveBeenCalledTimes(5);
+    expect(query).toHaveBeenCalledTimes(6);
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('pg_advisory_xact_lock'))).toBe(true);
     expect(query.mock.calls.every(([sql]) => !String(sql).includes('p-1'))).toBe(true);
   });
 
@@ -31,7 +32,7 @@ describe('PostgresPortfolioRepository', () => {
   });
 
   it('persists risk evaluations idempotently by proposal and policy version', async () => {
-    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ evaluation_id: 'risk-1' }] }).mockResolvedValue({ rows: [] });
+    const query = vi.fn().mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({ rows: [{ evaluation_id: 'risk-1' }] }).mockResolvedValue({ rows: [] });
     await new PostgresPortfolioRepository({ query }).appendRiskEvaluation({ evaluationId: 'risk-1', proposalId: 'proposal-1', policyVersion: 'policy-v1', verdict: 'PASS', rules: [], before: { cash: '1', totalEquity: '1' }, projectedAfter: { cash: '1', totalEquity: '1' } }, 'p-1');
     expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_risk_evaluations'))).toBe(true);
     expect(query.mock.calls.some(([sql]) => String(sql).includes('portfolio_outbox_events'))).toBe(true);

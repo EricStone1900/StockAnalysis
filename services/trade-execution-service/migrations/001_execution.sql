@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS rebalance_batches (
   approval_id TEXT NOT NULL,
   risk_evaluation_id TEXT NOT NULL,
   budget_reservation_id TEXT NOT NULL,
+  resource_reservation_id TEXT NOT NULL,
   target_portfolio_version INTEGER NOT NULL,
   valid_until TIMESTAMPTZ NOT NULL,
   content_hash TEXT NOT NULL UNIQUE,
@@ -12,6 +13,7 @@ CREATE TABLE IF NOT EXISTS rebalance_batches (
   idempotency_key TEXT NOT NULL UNIQUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE rebalance_batches ADD COLUMN IF NOT EXISTS resource_reservation_id TEXT;
 CREATE TABLE IF NOT EXISTS order_intents (
   intent_id TEXT PRIMARY KEY,
   rebalance_batch_id TEXT NOT NULL REFERENCES rebalance_batches(rebalance_batch_id),

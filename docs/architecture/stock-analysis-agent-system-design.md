@@ -285,20 +285,9 @@ stock.execution.fill.recorded.v1
 ### 8.3 EventEnvelope
 
 ```ts
-interface EventEnvelope<T> {
-  eventId: string;
-  eventType: string;
-  eventVersion: number;
-  occurredAt: string;
-  publishedAt: string;
-  producer: string;
-  aggregateId: string;
-  aggregateVersion: number;
-  correlationId: string;
-  causationId?: string;
-  idempotencyKey: string;
-  payload: T;
-}
+// 以 packages/contracts/schemas/domain-event-envelope.schema.json 生成产物为准。
+import type { DomainEventEnvelope } from '@stock/contracts';
+type EventEnvelope<T extends Record<string, unknown>> = Omit<DomainEventEnvelope, 'payload'> & { payload: T };
 ```
 
 ### 8.4 Outbox和Inbox
@@ -604,7 +593,7 @@ Docker Compose足以完成当前低频人工模式；出现明确的可用性和
 
 ## 16. 推荐开发顺序
 
-实施顺序以[开发路线V2](../development-roadmap-v2/README.md)的00～12阶段为唯一门禁来源：先冻结架构和搭建全部服务骨架，再逐个完成独立领域微服务，然后建设平台访问层、Agent基础、业务Agent、Temporal人工闭环、学习闭环以及Paper/Shadow和受控自动交易。
+实施顺序由[ADR-020](./adr/ADR-020-execution-consistency-and-delivery-gates.md)补充M1/M2/M3纵向门禁；服务生命周期仍以[开发路线V2](../development-roadmap-v2/README.md)的00～12阶段为唯一门禁来源：先冻结架构和搭建全部服务骨架，再逐个完成独立领域微服务，然后建设平台访问层、Agent基础、业务Agent、Temporal人工闭环、学习闭环以及Paper/Shadow和受控自动交易。
 
 每个微服务必须按S0边界契约、S1骨架、S2最小纵向切片、S3核心领域、S4契约事件、S5生产强化和S6独立验收推进。基础服务先独立Docker部署并通过`90-test-plan.md`与`99-acceptance.md`，再允许Agent或Workflow接入。开发期间可使用Fake服务和固定Fixture，不允许通过跨库访问“临时联调”。
 

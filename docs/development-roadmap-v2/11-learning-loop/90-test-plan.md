@@ -18,3 +18,7 @@
 - 候选策略晋升状态机已覆盖 PIT、样本外、Walk-forward、成本、换手、容量、Regime、相关性和人工批准门禁。
 - Python Ruff、mypy、Outcome 单元测试及 Agent 服务 ESLint、TypeScript、43 项单元测试已通过。
 - 尚待 Ubuntu 人工验收：真实 Outcome 输入、Memory 重建、研究实验隔离、Shadow 和人工晋升审计。
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

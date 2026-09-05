@@ -15,17 +15,8 @@
 所有改变领域事实的命令必须携带 `Idempotency-Key`、`actorId`、`correlationId` 与 `expectedVersion`。重复幂等键返回首次处理的结果；版本不符返回 `CONFLICT`；未授权 actor 返回权限错误。内部服务只能透传已验证的身份声明。
 
 ```ts
-interface DomainEventEnvelope<T> {
-  eventId: string;
-  subject: string; // stock.<context>.<topic>.<past-tense>.v<major>
-  schemaVersion: number;
-  occurredAt: string;
-  availableAt: string;
-  producer: string;
-  correlationId: string;
-  causationId?: string;
-  payload: T;
-}
+// 此处只引用生成类型，不手工维护第二份Envelope。
+import type { DomainEventEnvelope } from '@stock/contracts';
 ```
 
 事件 Payload 只放业务必要字段、不可变快照 ID 或 Artifact URI/Hash；新闻全文、Tick 流、因子矩阵和模型二进制禁止进入消息。Minor 版本仅允许兼容增加；字段语义删除、收紧或变更必须升 Subject Major，并保留迁移期。
@@ -45,4 +36,4 @@ interface ErrorEnvelope {
 
 ## 阶段 01 落地约束
 
-阶段 01 在 `contracts/openapi/`、`contracts/asyncapi/`、`contracts/schemas/` 建立可执行 Schema 与生成器，生成 TypeScript/Python 类型。阶段 00 的本文件是语义基线，不替代后续的机器可读契约。
+阶段 01 在 `packages/contracts/openapi/`、`packages/contracts/asyncapi/`、`packages/contracts/schemas/` 建立可执行 Schema 与生成器，生成 TypeScript/Python 类型。阶段 00 的本文件是语义基线，不替代后续的机器可读契约。

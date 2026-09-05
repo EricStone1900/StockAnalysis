@@ -28,3 +28,9 @@ Ubuntu 上只使用隔离测试账户和测试数据库，不配置生产券商�
 - 小资金上线前长周期容量、错误率、滑点和回撤报告。
 
 任何UNKNOWN重复下单、同批拆分绕过预算、跨环境污染或Kill Switch失效都判定FAIL。
+
+## ADR-020新增测试门禁
+
+隔离Paper可前置服务于M2/M3；真实券商开关仍关闭，学习能力不替代资金、授权、UNKNOWN及发布门禁。
+
+专项执行：在仓库根配置隔离数据库后运行`bash scripts/verify-execution-hardening.sh`。该命令只覆盖执行/工作流代码和PostgreSQL专项，不代替本阶段其余测试。真实E2E需保留请求、数据库、事件、Worker证据；记录跳过项，禁止视为PASS。

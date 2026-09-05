@@ -21,3 +21,7 @@
 - 每个组合每天允许0～2个RebalanceBatch。一个批次可以包含多个RebalanceLeg和OrderIntent；语义、计数时点和失败释放遵循[ADR-010](../../architecture/adr/ADR-010-rebalance-batch-and-daily-limit.md)。
 
 本阶段不接真实Agent、Temporal或券商，使用Fixture和Fake Client形成确定性基础。
+
+## ADR-020整改增量
+
+遵循[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)。执行身份、权威授权、单事务Outbox、并发资源占用、恢复及幂等冲突；详细实施见07-execution-consistency-remediation.md。 保留服务S0～S6，不变更事实所有权，不开放生产自动交易。前置依赖未具备时明确阻塞对应真实能力；允许独立验证的切片继续执行。

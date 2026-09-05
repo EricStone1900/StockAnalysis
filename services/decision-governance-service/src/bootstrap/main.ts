@@ -4,6 +4,8 @@ import { PostgresProposalRepository } from '../infrastructure/postgres-proposal-
 import { PostgresBudgetRepository } from '../infrastructure/postgres-budget-repository.js';
 import { GovernanceOutboxRepository } from '../infrastructure/governance-outbox-repository.js';
 import { readNatsRuntimeConfig } from '../application/nats-config.js';
+import { ExecutionAuthorizationController } from './execution-authorization-controller.js';
+import { HttpResourceReservationReader } from '../application/resource-reservation-reader.js';
 const serviceName = 'decision-governance-service';
 const databasePool = process.env.DECISION_GOVERNANCE_DATABASE_URL ? new Pool({ connectionString: process.env.DECISION_GOVERNANCE_DATABASE_URL, max: 5 }) : undefined;
 @Controller() class HealthController { @Get('/live') live() { return { status: 'UP' }; } @Get('/ready') ready() { return { status: 'UP', dependencies: {} }; } @Get('/metrics') metrics() { return ''; } @Get('/version') version() { return { service: serviceName, version: '0.1.0' }; } }
@@ -20,7 +22,8 @@ const databasePool = process.env.DECISION_GOVERNANCE_DATABASE_URL ? new Pool({ c
   @Post(':proposalId/budget-reservations/:reservationId/consume') async consumeBudget(@Param('reservationId') reservationId: string) { try { return await this.service.consumeBudget(reservationId); } catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'invalid budget consume'); } }
 }
 const governanceService = databasePool ? new GovernanceService(undefined, new PostgresProposalRepository(databasePool), undefined, new PostgresBudgetRepository(databasePool), new GovernanceOutboxRepository(databasePool)) : new GovernanceService();
+const resourceReader = new HttpResourceReservationReader(process.env.PORTFOLIO_RISK_BASE_URL ?? '', process.env.PORTFOLIO_INTERNAL_TOKEN ?? '');
 @Injectable() class DatabaseLifecycle { async onApplicationShutdown(): Promise<void> { if (process.env.NODE_ENV !== 'test' && databasePool) await databasePool.end(); } }
-@Module({ controllers: [HealthController, ProposalController], providers: [{ provide: GovernanceService, useFactory: () => governanceService }, DatabaseLifecycle] }) class AppModule {}
+@Module({ controllers: [HealthController, ProposalController, ExecutionAuthorizationController], providers: [{ provide: GovernanceService, useFactory: () => governanceService }, { provide: 'ResourceReservationReader', useFactory: () => resourceReader }, DatabaseLifecycle] }) class AppModule {}
 async function bootstrap() { const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName }); const nats = readNatsRuntimeConfig(process.env); if (databasePool) { for (const migration of ['001_proposals.sql', '002_budget-lifecycle.sql']) await databasePool.query(await readFile(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8')); } const app = await NestFactory.create(AppModule, new FastifyAdapter()); app.enableShutdownHooks(); await app.listen(config.PORT, '0.0.0.0'); log('service.started', { service: serviceName, natsSubscriberConfigured: nats.enabled }); }
 if (process.env.NODE_ENV !== 'test') void bootstrap();

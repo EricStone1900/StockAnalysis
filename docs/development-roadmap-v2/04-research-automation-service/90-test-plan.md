@@ -34,3 +34,7 @@ PIT、Hash、权限、隔离、幂等或恢复失败均为`FAIL`，不能用跳�
 - Isolation：研究数据库用户不能写quant数据库，研究身份不能激活版本。
 
 关键通过条件：任何自动生成代码都不能直接影响DailyAnalysisSnapshot或DailyStrategySnapshot。
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

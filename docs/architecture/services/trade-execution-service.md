@@ -91,7 +91,7 @@ UNKNOWN 表示发送结果或券商状态无法确认，必须查询或人工处
 
 - decisionId 状态为 APPROVED。
 - hardRiskEvaluation 仍在有效期。
-- budgetReservationId有效、状态为RESERVED，且decisionId和proposalVersion一致。
+- budgetReservationId有效、状态为DISPATCHING，且decisionId和proposalVersion一致；RESERVED不得直接接受，遵循ADR-010。
 - targetPortfolioVersion、Leg集合和contentHash与批准版本一致。
 - portfolioSnapshotId 与当前状态未发生不可接受偏差。
 - 指令未过期。

@@ -13,6 +13,9 @@ export class ProposalAggregate {
   private readonly proposals = new Map<string, TradeProposal>();
   private readonly idempotency = new Map<string, TradeProposal>();
 
+  /** 进程重启后由持久化适配器恢复，状态机仍只在聚合内迁移。 */
+  restore(proposal: TradeProposal): void { this.proposals.set(`${proposal.proposalId}:${proposal.proposalVersion}`, proposal); }
+
   attachRiskReview(proposalId: string, proposalVersion: number, review: RiskReviewLink): TradeProposal {
     const key = `${proposalId}:${proposalVersion}`; const proposal = this.proposals.get(key);
     if (!proposal) throw new Error('proposal not found');

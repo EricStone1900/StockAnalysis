@@ -11,4 +11,6 @@ class DomainEventEnvelope(BaseModel):
     producer: str
     correlationId: str
     causationId: str | None = None
+    aggregateId: str | None = None
+    aggregateVersion: int | None = None
     payload: dict[str, Any]

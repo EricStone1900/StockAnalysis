@@ -21,3 +21,7 @@
 - Strategy Memory和候选策略不能自动成为ACTIVE。
 - 单次盈利或亏损不得形成生产规则。
 
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

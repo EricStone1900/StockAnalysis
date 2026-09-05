@@ -1,15 +1,9 @@
 # workflow-orchestration-service
 
-Temporal 负责时间、顺序、重试和人工等待；领域事实、数据库写入、模型调用与交易执行均由各自服务的 Activity 调用完成。
+`pnpm dev`只启动HTTP健康服务，不启动Temporal Worker。Worker入口为`pnpm worker`，导出健康、量化、新闻、盯盘、市场状态、投资决策、人工审批和执行工作流。
 
-本地检查：
+当前Activity实现仍为Fake。只有显式设置`WORKFLOW_RUNTIME_MODE=demo`且`WORKFLOW_EXECUTION_ENABLED=false`、非production环境才允许Worker启动。真实模式会失败关闭，不能把demo运行签署为真实服务E2E。
 
-```sh
-pnpm --filter @stock/workflow-orchestration-service lint
-pnpm --filter @stock/workflow-orchestration-service typecheck
-pnpm --filter @stock/workflow-orchestration-service test
-```
+执行工作流遇到接受响应不确定或接受后步骤失败返回UNKNOWN，不释放预算。仅权威返回明确未接受时释放。后续仍需实现真实Activity、按原幂等键查询恢复和持久化事件接入。
 
-Worker 使用 `stock-workflows-v1` Task Queue。每个 Activity 都必须接收 `workflowId`、`runId`、`correlationId` 和 `idempotencyKey`，只返回小结果或 Artifact 引用。
-
-可靠性默认配置为只观察模式，Agent 和交易执行均关闭。必须显式设置 `WORKFLOW_AGENT_ENABLED=true`、`WORKFLOW_EXECUTION_ENABLED=true` 才能放行对应路径；任何 `WORKFLOW_GLOBAL_PAUSED=true` 都会阻断全部 Workflow。
+本地验证：`pnpm lint`、`pnpm typecheck`、`pnpm test`；单元测试包含实际工作流函数的异常路径，但不替代真实Temporal测试。

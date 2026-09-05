@@ -13,7 +13,10 @@
     "producer": { "type": "string" },
     "correlationId": { "type": "string" },
     "causationId": { "type": "string" },
+    "aggregateId": { "type": "string", "minLength": 1 },
+    "aggregateVersion": { "type": "integer", "minimum": 1 },
     "payload": { "type": "object" }
   },
+  "dependentRequired": { "aggregateId": ["aggregateVersion"], "aggregateVersion": ["aggregateId"] },
   "additionalProperties": false
 }

@@ -20,3 +20,7 @@
 - 三个服务只读market-data契约，不直接访问其数据库。
 - 盯盘首版采用[ADR-019](../../architecture/adr/ADR-019-free-first-intraday-watchlist.md)的`FREE_TIERED_10_20_30`：批量快照每10分钟一次，P0/P1/P2分别每10/20/30分钟评估；默认50支、验收后最多80支、100支仅压力测试；免费源失败或行情陈旧时失败关闭，不生成伪正常结论。
 - 盘中阈值只用于HOLD、WATCH、延迟/取消未执行批次、风险减仓或执行修正；不重新计算日频Alpha、不产生新的盘中Alpha调仓。
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

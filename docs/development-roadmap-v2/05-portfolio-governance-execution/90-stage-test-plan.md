@@ -14,3 +14,9 @@
 12. 执行已接受但响应丢失时，预留保持DISPATCHING；按幂等键查询后收敛为CONSUMED，不释放或新建批次。
 
 通过标准：失败路径无部分READY批次或重复账本副作用，审计可关联完整correlationId、reservationId和rebalanceBatchId。
+
+## ADR-020新增测试门禁
+
+执行身份、权威授权、单事务Outbox、并发资源占用、恢复及幂等冲突；详细实施见07-execution-consistency-remediation.md。
+
+专项执行：在仓库根配置隔离数据库后运行`bash scripts/verify-execution-hardening.sh`。该命令只覆盖执行/工作流代码和PostgreSQL专项，不代替本阶段其余测试。真实E2E需保留请求、数据库、事件、Worker证据；记录跳过项，禁止视为PASS。

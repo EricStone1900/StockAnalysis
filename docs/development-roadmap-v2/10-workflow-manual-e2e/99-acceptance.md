@@ -12,7 +12,7 @@
 - [ ] 自动交易Feature Flag仍关闭。
 - [ ] Runbook和审计导出可由其他人员执行。
 
-## 人工验收结论
+## 历史人工验收结论（仅针对所列基线）
 
 - 状态：**PASS**
 - 验收环境：Ubuntu 服务器（Temporal、Worker、PostgreSQL、NATS、容器）
@@ -27,4 +27,12 @@
 - 投资决策工作流提交：`3be2a74`；人工审批工作流：`ff441d5`；调仓执行工作流：`5bd2333`；可靠性策略：`da30ea0`。
 - Mac 本地 ESLint、TypeScript 和 29 项工作流单元测试通过。
 - 已覆盖幂等 Activity、Artifact 引用、门控与 HOLD 短路、人工 Signal、预算释放、UNKNOWN 成交和安全 Feature Flag。
-- 阶段10尚未最终验收，必须完成 `06-ubuntu-e2e-verification.md` 并记录 Temporal/NATS/数据库/Worker 证据。
+- 当前整改提交的REAL_E2E尚未验收，必须完成 `06-ubuntu-e2e-verification.md` 并记录 Temporal/NATS/数据库/Worker 证据。
+
+## 当前整改提交的验收范围
+
+[整改记录](../../architecture/architecture-remediation-2026-09-05.md)为本次变更证据入口。历史人工PASS仅对应历史基线；本次未签署本阶段REAL_E2E/RELEASE。全部Workflow导出、显式demo模式、真实Activity绑定和接受不确定时保留预算；拒绝以Fake结果代替真实Temporal恢复。
+
+- [ ] 补齐当前提交、镜像、迁移、契约版本与报告路径。
+- [ ] 完成本阶段新增真实场景；授权、资金、幂等和恢复任一失败判FAIL。
+- [ ] 记录风险、回滚目标和签署人，不以新增文档替代运行验证。

@@ -15,3 +15,7 @@
 13. MonitorPolicy变更具有版本和生效时间，交易时段内不静默改变间隔或阈值；阈值越过只能产生HOLD、WATCH、DELAY、CANCEL、风险减仓或执行修正，不能重新计算日频Alpha或创建第三种盘中Alpha调仓。
 
 测试必须分别运行单服务Component Suite和三服务契约Suite。
+
+## 纵向交付依赖调整
+
+依据[ADR-020](../../architecture/adr/ADR-020-execution-consistency-and-delivery-gates.md)，本阶段增强能力不阻塞M1只读分析与M2隔离人工闭环；本阶段自身S0～S6、数据与安全测试及签署要求不变。验收应验证未启用本阶段时依赖方明确降级，不能伪造新闻、市场状态或学习结果；生产启用仍需原有门禁。

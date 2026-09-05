@@ -25,20 +25,8 @@ stock.<bounded-context>.<aggregate-or-topic>.<past-tense-event>.v<major>
 统一Envelope至少包含：
 
 ```ts
-interface DomainEvent<T> {
-  eventId: string;
-  eventType: string;
-  eventVersion: number;
-  occurredAt: string;
-  publishedAt: string;
-  producer: string;
-  aggregateId: string;
-  aggregateVersion: number;
-  correlationId: string;
-  causationId?: string;
-  traceId?: string;
-  payload: T;
-}
+import type { DomainEventEnvelope } from '@stock/contracts';
+type DomainEvent<T extends Record<string, unknown>> = Omit<DomainEventEnvelope, 'payload'> & { payload: T };
 ```
 
 Payload包含业务必要字段和不可变Artifact引用，不包含新闻全文、Tick流、因子矩阵或模型二进制。
@@ -66,14 +54,15 @@ Payload包含业务必要字段和不可变Artifact引用，不包含新闻全�
 | `stock.execution.rebalance-batch.completed.v1` | trade-execution | governance、portfolio-risk、platform-api、audit |
 | `stock.execution.fill.recorded.v1` | trade-execution | portfolio-risk、governance、audit |
 
-AsyncAPI文件位于`contracts/asyncapi/`，Payload Schema引用`contracts/schemas/`。新增或破坏性变更必须先更新契约和兼容性测试。
+AsyncAPI文件位于`packages/contracts/asyncapi/`，Payload Schema引用`packages/contracts/schemas/`。新增或破坏性变更必须先更新契约和兼容性测试。
 
 ## 5. Outbox、Inbox与顺序
 
-生产方在同一数据库事务内写Aggregate和`outbox_events`，Relay异步发布NATS并记录发布时间。消费者先以`eventId + consumerName`写`inbox_events`，重复事件直接确认。
+生产方在同一数据库事务内写Aggregate和`outbox_events`，Relay异步发布NATS并记录发布时间。消费者在同一数据库事务中写`eventId + consumerName`的Inbox记录及业务修改；事务提交后才ACK。重复已提交事件直接确认，未提交记录不能用作已处理证明。
 
-- 只保证同一Aggregate的版本顺序，不假设全局顺序。
-- Consumer检测到`aggregateVersion`缺口时进入延迟重试或重建投影。
+- 不假设网络投递顺序或全局顺序；消费者按版本拒绝旧投影覆盖新投影。
+- v1的`aggregateId/aggregateVersion`为兼容性可选字段，必须成对出现。只有生产者保证连续版本且消费者订阅完整聚合事件时，才以缺口触发重建；否则通过权威快照对账，禁止无限等待不存在的版本。
+- `schemaVersion`是契约版本，不能用作聚合版本；`availableAt`是业务可见时间，不能用重投时间覆盖。
 - Handler的外部副作用必须有业务幂等键。
 - Dead Letter Stream保留原事件、失败分类、重试次数和追踪信息。
 

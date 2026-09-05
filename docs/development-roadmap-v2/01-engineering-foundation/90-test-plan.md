@@ -18,3 +18,9 @@
 
 通过标准：所有项目独立通过，不能只验证整套Compose一起运行。
 
+
+## ADR-020新增测试门禁
+
+本地infra/research/manual-services/full-demo分组、配置缺失检查和不覆盖Secret；记录Mac资源实测。
+
+专项执行：在仓库根配置隔离数据库后运行`bash scripts/verify-execution-hardening.sh`。该命令只覆盖执行/工作流代码和PostgreSQL专项，不代替本阶段其余测试。真实E2E需保留请求、数据库、事件、Worker证据；记录跳过项，禁止视为PASS。

@@ -21,3 +21,9 @@
 - 工作流服务 ESLint、TypeScript 和 `git diff --check` 通过；当前单元测试 29 项通过。
 - 可靠性策略已覆盖全局暂停、只观察、Agent 禁用、执行禁用、重试上限和阻塞运维动作。
 - 尚待 Ubuntu/Temporal 人工验收：真实 Worker、Schedule、Signal、重启恢复、NATS/数据库故障和人工交易 E2E。
+
+## ADR-020新增测试门禁
+
+全部Workflow导出、显式demo模式、真实Activity绑定和接受不确定时保留预算；拒绝以Fake结果代替真实Temporal恢复。
+
+专项执行：在仓库根配置隔离数据库后运行`bash scripts/verify-execution-hardening.sh`。该命令只覆盖执行/工作流代码和PostgreSQL专项，不代替本阶段其余测试。真实E2E需保留请求、数据库、事件、Worker证据；记录跳过项，禁止视为PASS。

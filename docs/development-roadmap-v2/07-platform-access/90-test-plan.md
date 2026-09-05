@@ -16,3 +16,9 @@
 - Web 的 lint、typecheck、test、build：通过，6 项测试。
 
 集成测试使用受控 Fake Fetch，不访问真实数据库或 Provider；Ubuntu 仍需验证容器、真实 BFF 路由、安全 Headers 和下游部分失败。
+
+## ADR-020新增测试门禁
+
+M1允许前置只读页面；Web到BFF到真实数据服务验证代理、新鲜度和降级；开发身份头不构成生产认证。
+
+专项执行：在仓库根配置隔离数据库后运行`bash scripts/verify-execution-hardening.sh`。该命令只覆盖执行/工作流代码和PostgreSQL专项，不代替本阶段其余测试。真实E2E需保留请求、数据库、事件、Worker证据；记录跳过项，禁止视为PASS。
