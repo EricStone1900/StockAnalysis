@@ -34,7 +34,7 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 ## 2026-09-05 当前提交本地真实闭环记录
 
 - 修复 Web Dashboard 请求缺少 `x-actor-id` 的问题；本地只读身份现在显式发送 `web-user`，生产认证仍由 BFF/网关负责。
-- Mac 原生验证：platform-api lint、typecheck、8 项测试通过；Web lint、typecheck、7 项测试和生产构建通过。
+- Mac 原生验证：platform-api lint、typecheck、9 项测试通过；Web lint、typecheck、8 项测试和生产构建通过。
 - 真实链路验证：`market-data-service → platform-api-service → Web` 已联通；Dashboard 返回真实 DataVersion、市场数据服务状态和 `WARN` 质量状态。
 - 真实接口响应包含安全 Header；未授权请求保持 `RBAC_DENIED`，带 `web-user + RESEARCH_READ` 的本地只读请求成功。
 - `dailyAnalysisSnapshot` 已通过 quant-research-service 的只读 `latest` 端点接入 Dashboard；没有已发布快照时返回 `DAILY_ANALYSIS_NOT_READY`，不伪造业务数据。
@@ -43,3 +43,4 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - Dashboard 已新增 Agent 服务只读目录卡片；Platform API 通过 `AGENT_SERVICE_URL` 检查 Agent 服务并声明四个 `fast` 专业 Agent，不向浏览器暴露 Agent 内部运行入口。
 - 新增 `GET /api/v1/agent-runs/:correlationId` 只读代理；`RESEARCH_READ` 可获取 AgentRun，缺少该角色返回 `403`，不存在的运行返回 `404`。Mac 本地成功读取 `stock-analysis:v1` 的输出与证据字段。
 - Web 支持通过 `?agentRun=<correlationId>` 展示 AgentRun 只读详情卡片；未找到运行时显示明确提示，不改变默认 Dashboard 页面。
+- 浏览器验收：Fast Dashboard、日分析快照、Agent 服务目录、AgentRun 详情及无效 AgentRun 降级提示均已在本地 Vite 页面可见。

@@ -11,7 +11,7 @@
 ## 本机验证记录（Mac）
 
 - contracts 的 lint、typecheck、`test:contract`：通过，生成 Client 无漂移。
-- platform-api 的 lint、typecheck、unit test：通过，7 项测试。
+- platform-api 的 lint、typecheck、unit test：通过，9 项测试。
 - platform-api 的 `test:integration`：覆盖生成 Client 与 Dashboard Facade 集成契约。
 - Web 的 lint、typecheck、test、build：通过，6 项测试。
 
