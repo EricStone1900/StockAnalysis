@@ -26,10 +26,10 @@
 
 ## 未完成与发布阻塞
 
-1. **权威执行授权适配器未接通**：签发规则和执行侧验签规则均已实现，但尚未以受服务身份认证保护的内部HTTP/gRPC接口连接治理、组合和执行服务；当前默认拒绝封闭缺口，测试allow stub仅在测试文件中。
-2. **资源预留尚未接入账本结算**：资金、可卖数量、组合锁、持久化和同事务Outbox已实现；Fill、撤销、对账与公司行动尚未在同一事务更新或结算预留。详细顺序见[整改计划](../development-roadmap-v2/05-portfolio-governance-execution/07-execution-consistency-remediation.md)。
-3. **真实Activity/Event Starter与恢复查询未接通**：Workflow测试调用实际函数但代理Activity；没有声称真实Temporal/NATS跨服务E2E通过。
-4. **本地全栈未构建运行验证**：Compose配置及Web构建通过不等同于容器全部启动；尚无Mac峰值资源报告。full-demo不包含完整真实业务闭环。
+1. ~~**权威执行授权适配器未接通**~~：已通过受服务身份保护的内部HTTP接口连接治理、组合和执行服务，并在真实调仓闭环中验证授权引用、预算状态、资源状态和执行内容Hash一致性。
+2. ~~**资源预留尚未接入账本结算**~~：已补齐资源 `DISPATCHING` 推进、成交后 `IN_FLIGHT` 和完成后 `SETTLED`；真实成交事件已更新组合账本并由 Inbox 去重。
+3. ~~**真实Activity/Event Starter与恢复查询未接通**~~：已由真实 Temporal Worker、NATS JetStream Event Starter 和 HTTP Activities 完成隔离环境 REAL_E2E；仍需后续 Ubuntu 重启演练作为发布前补充门禁。
+4. **本地全栈未构建运行验证**：P1 已完成核心执行闭环的本地构建与运行验证；Web、市场数据真实 Release 导入和峰值资源报告仍属于后续发布门禁。
 5. 执行之外的写服务仍需逐一审查事务、鉴权和Inbox；当前整改不为全部服务背书。现有人工HTTP脚本须接入真实服务身份和业务授权后才能用于REAL_E2E。
 
 因此，当前真实交易发布门禁为FAIL；历史人工确认仍保留其原有基线与范围，不被本记录撤销或扩大。
