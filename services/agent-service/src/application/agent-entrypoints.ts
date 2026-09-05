@@ -1,15 +1,16 @@
 import { AgentRunner, fakeAnalysisDefinition, type AgentRun } from './agent-kernel.js';
+import { InMemoryAgentRunRepository, type AgentRunRepository } from './agent-run-repository.js';
 
 export interface FakeAnalysisCommand { correlationId: string; text: string; }
 
 export class FakeAnalysisEntrypoints {
-  private readonly completed = new Map<string, AgentRun<{ summary: string }>>();
+  public constructor(private readonly repository: AgentRunRepository = new InMemoryAgentRunRepository()) {}
 
   public async execute(command: FakeAnalysisCommand): Promise<AgentRun<{ summary: string }>> {
-    const existing = this.completed.get(command.correlationId);
+    const existing = this.repository.get(command.correlationId);
     if (existing) return existing;
     const result = await new AgentRunner().run(fakeAnalysisDefinition, { text: command.text }, { correlationId: command.correlationId, inputArtifacts: [] });
-    this.completed.set(command.correlationId, result);
+    this.repository.save(result);
     return result;
   }
 
