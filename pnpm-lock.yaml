@@ -236,12 +236,18 @@ importers:
       '@stock/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@temporalio/client':
+        specifier: ^1.23.0
+        version: 1.23.0
       '@temporalio/worker':
         specifier: ^1.12.3
         version: 1.23.0
       '@temporalio/workflow':
         specifier: ^1.12.3
         version: 1.23.0
+      nats:
+        specifier: ^2.29.3
+        version: 2.29.3
 
 packages:
 
