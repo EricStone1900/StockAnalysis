@@ -46,3 +46,13 @@ curl http://localhost:3000/ready
 ## 通过标准
 
 所有自动化命令与基础八项人工检查通过后，可冻结DataVersion v1契约。正式版v1数据源追加验收也通过后，阶段03才可使用真实数据进行生产候选验收；量化服务始终只能通过API或Artifact引用消费数据。
+
+## 2026-09-05 本地真实数据验收记录
+
+- 固定 Release：`2026-07-29`；DataVersion：`cn-a-investment-data-2026-07-29-6a4947798614`。
+- 归档 Hash：`6a4947798614d077add2d6ac14ae306eef2f287949de8ceeef06d66cb9d5de90`；Manifest Hash：`df26610d8ef97520e9c45eaf9bf1684b350e0bd7be7b66e4da4c0a1a4fcbb175`。
+- 结构质量报告：`WARN`，原因 `unclassified_close_gap`，收盘非有限值 `577070`；因此该父 DataVersion 当前不能作为阶段03生产候选放行。
+- BaoStock `exact` 单条探针：`PASS`；1 个收盘空洞被确认为 `SUSPENSION_CONFIRMED / baostock_tradestatus_0`，`UNEXPLAINED_MISSING=0`，`STATUS_UNKNOWN=0`，原始 Qlib Hash 未改变。
+- `batch_size=1` 恢复演练：成功批次 `SUCCEEDED`、`attempts=1`；重复认领返回 `422 status batch is not claimable`。
+- 本轮修复批次身份必须包含 `parent_version_id + policy_version`，避免不同 Release 的相同 ordinal 发生冲突；新增跨父 Release 回归测试。
+- 结论：真实来源接入和精确状态探针通过；阶段02正式 PASS 仍被结构质量 WARN 和未完成的全量状态覆盖阻塞，不能放行阶段03。

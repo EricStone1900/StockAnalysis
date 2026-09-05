@@ -103,8 +103,12 @@ class InvestmentDataImportService:
         self.lineage = lineage
         self.publisher = publisher
         self.artifact_uri_prefix = artifact_uri_prefix.rstrip("/")
+        self._idempotent_results: dict[str, DataVersion] = {}
 
     async def import_release(self, command: InvestmentDataImportCommand, idempotency_key: str) -> DataVersion:
+        repeated = self._idempotent_results.get(idempotency_key)
+        if repeated is not None:
+            return repeated
         policy = SourcePolicy(
             policy_version=command.policy_version,
             primary_source="investment_data",
@@ -136,6 +140,7 @@ class InvestmentDataImportService:
         candidate = candidate.model_copy(update={"quality_status": daily_quality.status})
         published = await self.publisher.publish(candidate, idempotency_key)
         self._persist_version(published)
+        self._idempotent_results[idempotency_key] = published
         return published
 
     def _persist_version(self, version: DataVersion) -> None:
@@ -242,11 +247,9 @@ class BaoStockStatusImportService:
                         policy_document_uri=command.policy_document_uri,
                     )
                 )
-            identity_namespace = (
-                f"{parent.version_id}:{command.policy_version}"
-                if command.mode is StatusEnrichmentMode.FAST
-                else ""
-            )
+            # 每个父 DataVersion 与策略版本都必须拥有独立的批次身份；
+            # 否则 exact 模式在不同 Release 的相同 ordinal/首条空洞上会冲突。
+            identity_namespace = f"{parent.version_id}:{command.policy_version}"
             batches = plan_status_batches(
                 eligible_gaps,
                 command.batch_size,

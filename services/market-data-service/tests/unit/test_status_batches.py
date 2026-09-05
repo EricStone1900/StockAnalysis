@@ -34,3 +34,12 @@ def test_status_batch_namespace_prevents_cross_policy_identity_collisions() -> N
     fast = plan_status_batches(gaps, 1, identity_namespace="parent-v1:v1-close-gap-fast")
 
     assert exact[0].batch_id != fast[0].batch_id
+
+
+def test_status_batch_namespace_prevents_cross_parent_release_collisions() -> None:
+    gaps = (CloseGap(security_id=SecurityId(exchange=Exchange.SSE, symbol="600000"), trading_day=date(2025, 1, 2)),)
+
+    first_release = plan_status_batches(gaps, 1, identity_namespace="parent-2026-07-29:v1-baostock-status")
+    second_release = plan_status_batches(gaps, 1, identity_namespace="parent-2026-08-29:v1-baostock-status")
+
+    assert first_release[0].batch_id != second_release[0].batch_id

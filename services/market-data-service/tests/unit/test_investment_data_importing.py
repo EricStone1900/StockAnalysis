@@ -189,6 +189,19 @@ def test_import_persists_lineage_writes_quality_report_and_publishes_version() -
     assert json.loads(writer.objects[report_key])["daily_quality"]["status"] == "PASS"
     assert len(lineage.artifacts) == 2
     assert lineage.policies["v1"].primary_source == "investment_data"
+    repeated = asyncio.run(
+        service.import_release(
+            InvestmentDataImportCommand(
+                release_tag="2026-08-28",
+                policy_version="v1",
+                policy_document_uri="docs://source-policy/v1",
+                available_at=datetime(2026, 8, 29, tzinfo=UTC),
+            ),
+            "import-2026-08-28",
+        )
+    )
+    assert repeated == version
+    assert len(lineage.artifacts) == 2
 
 
 class RecordedBaoStockClient:
