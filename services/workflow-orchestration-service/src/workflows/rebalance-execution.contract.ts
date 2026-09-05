@@ -2,7 +2,9 @@ import type { ActivityRequest, ActivityResponse, ArtifactRef } from '../activiti
 
 export type RebalanceReason = 'DAILY_TARGET' | 'INTRADAY_RISK_REDUCTION' | 'EXECUTION_CORRECTION';
 export type RebalanceExecutionScenario = 'PASS' | 'RESERVE_FAIL' | 'BATCH_FAIL' | 'UNKNOWN_ACCEPTANCE' | 'FILL_PARTIAL';
-export interface RebalanceExecutionPayload { portfolioId: string; decisionId: string; proposalVersion: number; tradingDate: string; batchSequence: 1 | 2; reason: RebalanceReason; scenario: RebalanceExecutionScenario; legCount: number; }
+export interface RebalanceExecutionLeg { legId: string; securityId: string; side: 'BUY' | 'SELL'; quantity: string; limitPrice: string; }
+export interface RebalanceExecutionFill { fillId: string; intentId: string; filledQuantity: string; fillPrice: string; occurredAt: string; idempotencyKey: string; }
+export interface RebalanceExecutionPayload { portfolioId: string; decisionId: string; proposalId?: string; proposalVersion: number; tradingDate: string; batchSequence: 1 | 2; reason: RebalanceReason; scenario: RebalanceExecutionScenario; legCount: number; riskEvaluationId?: string; riskPolicyVersion?: string; feeBuffer?: string; legs?: readonly RebalanceExecutionLeg[]; approvalId?: string; budgetReservationId?: string; resourceReservationId?: string; executionContentHash?: string; targetPortfolioVersion?: number; validUntil?: string; fills?: readonly RebalanceExecutionFill[]; }
 export type RebalanceExecutionRequest = ActivityRequest<RebalanceExecutionPayload>;
 export interface RebalanceStepResult { artifactRef: ArtifactRef; accepted?: boolean; reservationStatus?: 'RESERVED' | 'RELEASED' | 'CONSUMED'; fillStatus?: 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'; }
 export interface RebalanceExecutionActivities {

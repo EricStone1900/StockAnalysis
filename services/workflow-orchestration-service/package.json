@@ -7,6 +7,7 @@
     "dev": "tsx src/bootstrap/main.ts",
     "worker": "tsx src/worker.ts",
     "event-starter": "tsx src/event-starter-main.ts",
+    "rebalance-worker": "tsx src/rebalance-worker-main.ts",
     "lint": "eslint src tests",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -47,6 +47,15 @@ export class ExecutionService {
     await this.outbox?.append(batchCreatedEvent(batch, command.idempotencyKey, new Date().toISOString()), batch.rebalanceBatchId);
     return batch;
   }
+  public async getBatch(batchId: string): Promise<RebalanceBatch | undefined> {
+    if (this.pool) {
+      const batch = (await this.pool.query<{ payload: RebalanceBatch }>('SELECT payload FROM rebalance_batches WHERE rebalance_batch_id = $1', [batchId])).rows[0]?.payload;
+      if (!batch) return undefined;
+      const intents = await this.pool.query<{ payload: OrderIntent }>('SELECT payload FROM order_intents WHERE rebalance_batch_id = $1 ORDER BY leg_id', [batchId]);
+      return { ...batch, intents: intents.rows.map((row) => row.payload) };
+    }
+    return this.aggregate.getBatch(batchId);
+  }
 
   private async restore(batchId: string): Promise<void> {
     if (!this.repository) return;
