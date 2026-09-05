@@ -16,6 +16,8 @@ esac
 export DECISION_GOVERNANCE_DATABASE_URL="${DECISION_GOVERNANCE_DATABASE_URL:-postgresql://decision_governance:decision_governance_local_only@postgres:5432/decision_governance}"
 export TRADE_EXECUTION_DATABASE_URL="${TRADE_EXECUTION_DATABASE_URL:-postgresql://trade_execution:trade_execution_local_only@postgres:5432/trade_execution}"
 export NEWS_INTELLIGENCE_DATABASE_URL="${NEWS_INTELLIGENCE_DATABASE_URL:-postgresql://news_intelligence:news_intelligence_local_only@postgres:5432/news_intelligence}"
+export PORTFOLIO_INTERNAL_TOKEN="${PORTFOLIO_INTERNAL_TOKEN:-local-portfolio-internal-token}"
+export GOVERNANCE_INTERNAL_TOKEN="${GOVERNANCE_INTERNAL_TOKEN:-local-governance-internal-token}"
 compose=(docker compose -f "$root_dir/infra/compose/docker-compose.yml")
 case "$action" in
   config) "${compose[@]}" config --quiet;;
