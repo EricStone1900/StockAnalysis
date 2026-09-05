@@ -6,10 +6,11 @@ import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 
 import { DashboardFacade } from '../application/dashboard-facade.js';
-import { createAudit, principalFromHeaders } from '../application/security.js';
+import { createAudit, InMemoryAuditRepository, principalFromHeaders } from '../application/security.js';
 
 const serviceName = 'platform-api-service';
 const dashboardFacade = new DashboardFacade(new GeneratedMarketDataClient(process.env.MARKET_DATA_SERVICE_URL ?? 'http://localhost:3000'));
+const auditRepository = new InMemoryAuditRepository();
 
 @Controller()
 class HealthController {
@@ -25,8 +26,13 @@ class DashboardController {
   async dashboard(@Headers('x-actor-id') actorId: string | undefined, @Headers('x-roles') roles: string | undefined, @Headers('x-request-id') requestId = 'generated-request-id', @Headers('x-correlation-id') correlationId = requestId) {
     const principal = principalFromHeaders(actorId, roles);
     const result = await dashboardFacade.latest(principal);
-    createAudit({ requestId, correlationId, actorId: principal.actorId, action: 'dashboard.read' });
+    auditRepository.append(createAudit({ requestId, correlationId, actorId: principal.actorId, action: 'dashboard.read' }));
     return result;
+  }
+
+  @Get('/audit/events')
+  audit(@Headers('x-roles') roles: string | undefined) {
+    return roles?.split(',').map((role) => role.trim()).includes('ADMIN') ? { events: auditRepository.list() } : { events: [] };
   }
 }
 
