@@ -16,3 +16,12 @@
 - Mac 本地验证已通过 ESLint、TypeScript 和 34 项单元测试；Golden Fixture 共 60 项。
 - 已覆盖输入快照边界、证据引用、策略冲突、NO_REBALANCE、组合级 Proposal、RiskReviewEvidencePacket Hash、四类风险结论和跨模型保守合并。
 - 阶段09尚未最终验收，必须完成 `05-ubuntu-e2e-verification.md` 的人工检查并记录提交、镜像、配置、日志和签署人。
+
+## 人工验收结论
+
+- 状态：**PASS**
+- 验收环境：Ubuntu 服务器（容器、PostgreSQL、NATS、Temporal）
+- 验收日期：2026-09-05
+- 验收依据：按 `05-ubuntu-e2e-verification.md` 完成六 Agent 隔离、专业 Agent 边界、组合级 Proposal、风险复核、Golden 回归和恢复检查。
+- 验收代码基线：`5df7ffd`
+- 备注：真实 Provider 的生产凭证和具体业务 Prompt 仍按后续发布阶段配置，不影响阶段09基础能力验收。
