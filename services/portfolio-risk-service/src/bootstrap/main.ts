@@ -170,7 +170,7 @@ async function migratePortfolioDatabase(): Promise<void> {
   if (!databaseUrl) return;
   const pool = new Pool({ connectionString: databaseUrl, max: 1 });
   try {
-    for (const migration of ['001_portfolio_ledger.sql', '002_resource_reservations.sql']) await pool.query(await readFile(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));
+    for (const migration of ['001_portfolio_ledger.sql', '002_resource_reservations.sql', '003_execution_inbox.sql']) await pool.query(await readFile(new URL(`../../migrations/${migration}`, import.meta.url), 'utf8'));
   } finally {
     await pool.end();
   }
