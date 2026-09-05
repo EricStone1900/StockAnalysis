@@ -56,3 +56,10 @@ curl http://localhost:3000/ready
 - `batch_size=1` 恢复演练：成功批次 `SUCCEEDED`、`attempts=1`；重复认领返回 `422 status batch is not claimable`。
 - 本轮修复批次身份必须包含 `parent_version_id + policy_version`，避免不同 Release 的相同 ordinal 发生冲突；新增跨父 Release 回归测试。
 - 结论：真实来源接入和精确状态探针通过；阶段02正式 PASS 仍被结构质量 WARN 和未完成的全量状态覆盖阻塞，不能放行阶段03。
+
+### 2026-09-05 临时停牌假设版本
+
+- 基于父版本 `cn-a-investment-data-2026-07-29-6a4947798614` 创建临时策略版本 `v1-close-gap-fast`。
+- 对排除 BSE 与非 Stage03 股票后的 `571862` 个收盘空洞，统一写入 `SUSPENSION_ASSUMED`，来源标记为 `business_assumption`。
+- 生成版本：`cn-a-investment-data-2026-07-29-6a4947798614-baostock-status-e9a877a673c7`，质量状态保持 `WARN`；该版本仅用于本地数据准备，不得作为正式确认停牌或阶段03生产输入。
+- 临时导入入口已关闭（请求返回 `503 import task is not enabled`）。正式上线后必须用 BaoStock 全量验证并将 `SUSPENSION_ASSUMED` 替换为 `SUSPENSION_CONFIRMED`、`UNEXPLAINED_MISSING` 或 `STATUS_UNKNOWN`。

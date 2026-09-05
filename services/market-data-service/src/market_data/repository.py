@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -285,6 +286,63 @@ class PostgresSourceLineageRepository:
                     entity_type="close_gap_reconciliation",
                     entity_key=f"{security_key}:{reconciliation.trading_day.isoformat()}",
                     provenance=reconciliation.status_provenance,
+                )
+
+    def save_close_gap_reconciliations(
+        self, reconciliations: Iterable[CloseGapReconciliation], policy_version: str
+    ) -> None:
+        """批量写入停牌空洞核验，避免全量假设模式逐条建连。"""
+        items = tuple(reconciliations)
+        if not items:
+            return
+        with psycopg.connect(self.database_url) as connection:
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                """INSERT INTO close_gap_reconciliations (
+                policy_version, security_id, trading_day, status, reason,
+                primary_raw_artifact_hash, status_raw_artifact_hash
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (policy_version, security_id, trading_day) DO NOTHING""",
+                    [
+                    (
+                        policy_version,
+                        PostgresSecurityRepository._key(item.security_id),
+                        item.trading_day,
+                        item.status,
+                        item.reason,
+                        item.primary_provenance.raw_artifact_hash,
+                        item.status_provenance.raw_artifact_hash if item.status_provenance else None,
+                    )
+                    for item in items
+                    ],
+                )
+            provenance_rows = []
+            for item in items:
+                security_key = PostgresSecurityRepository._key(item.security_id)
+                entity_key = f"{security_key}:{item.trading_day.isoformat()}"
+                provenance_rows.append((entity_key, item.primary_provenance))
+                if item.status_provenance:
+                    provenance_rows.append((entity_key, item.status_provenance))
+            with connection.cursor() as cursor:
+                cursor.executemany(
+                """INSERT INTO field_provenance (
+                entity_type, entity_key, field_name, source, source_record_id, raw_artifact_hash,
+                source_version, source_policy_version, role
+                ) VALUES ('close_gap_reconciliation', %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING""",
+                    [
+                    (
+                        entity_key,
+                        provenance.field_name,
+                        provenance.source,
+                        provenance.source_record_id,
+                        provenance.raw_artifact_hash,
+                        provenance.source_version,
+                        provenance.source_policy_version,
+                        provenance.role,
+                    )
+                    for entity_key, provenance in provenance_rows
+                    ],
                 )
 
     @staticmethod

@@ -241,8 +241,13 @@ class BaoStockStatusEnrichmentService:
                 primary_provenance=primary,
                 status_provenance=assumption,
             )
-            self.lineage.save_close_gap_reconciliation(reconciliation, policy_version)
             reconciliations.append(reconciliation)
+        bulk_saver = getattr(self.lineage, "save_close_gap_reconciliations", None)
+        if bulk_saver is not None:
+            bulk_saver(reconciliations, policy_version)
+        else:
+            for reconciliation in reconciliations:
+                self.lineage.save_close_gap_reconciliation(reconciliation, policy_version)
         report = self._report(parent_version_id, [], reconciliations)
         return StatusEnrichmentResult(
             mode=StatusEnrichmentMode.FAST,
