@@ -11,3 +11,5 @@ pnpm --filter @stock/workflow-orchestration-service test
 ```
 
 Worker 使用 `stock-workflows-v1` Task Queue。每个 Activity 都必须接收 `workflowId`、`runId`、`correlationId` 和 `idempotencyKey`，只返回小结果或 Artifact 引用。
+
+可靠性默认配置为只观察模式，Agent 和交易执行均关闭。必须显式设置 `WORKFLOW_AGENT_ENABLED=true`、`WORKFLOW_EXECUTION_ENABLED=true` 才能放行对应路径；任何 `WORKFLOW_GLOBAL_PAUSED=true` 都会阻断全部 Workflow。
