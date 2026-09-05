@@ -72,7 +72,7 @@ export class ExecutionService {
     if (repeated) return intent;
     await this.repository?.appendFill(fill);
     await this.repository?.updateIntent(intent);
-    await this.outbox?.append(fillRecordedEvent(fill, fill.idempotencyKey), batchId);
+    await this.outbox?.append(fillRecordedEvent(fill, this.aggregate.getBatch(batchId), fill.idempotencyKey), batchId);
     return intent;
   }
 
