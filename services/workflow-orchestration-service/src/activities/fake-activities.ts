@@ -5,6 +5,7 @@ import type { MarketMonitorActivities, MarketMonitorRequest, MarketMonitorStepRe
 import type { MarketRegimeActivities, MarketRegimeRequest, MarketRegimeStepResult } from '../workflows/market-regime.contract.js';
 import type { InvestmentDecisionActivities, InvestmentDecisionRequest, InvestmentDecisionStepResult } from '../workflows/investment-decision.contract.js';
 import type { HumanApprovalActivities, HumanApprovalRequest, HumanApprovalStepResult } from '../workflows/human-approval.contract.js';
+import { validateRebalanceRequest, type RebalanceExecutionActivities, type RebalanceExecutionRequest, type RebalanceStepResult } from '../workflows/rebalance-execution.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -131,6 +132,25 @@ export class FakeHumanApprovalActivities implements HumanApprovalActivities {
     const artifactRef = { uri: `artifact://${artifactName}/${request.payload.decisionId}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
     const response = { correlationId: request.correlationId, result: { artifactRef, recorded: artifactName !== 'approval-bundle' }, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeRebalanceExecutionActivities implements RebalanceExecutionActivities {
+  private readonly completed = new Map<string, ActivityResponse<RebalanceStepResult>>();
+  public async reserveBudget(request: RebalanceExecutionRequest): Promise<ActivityResponse<RebalanceStepResult>> { return await this.complete(request, 'budget-reservation', { reservationStatus: request.payload.scenario === 'RESERVE_FAIL' ? 'RELEASED' : 'RESERVED' }); }
+  public async createRebalanceBatch(request: RebalanceExecutionRequest): Promise<ActivityResponse<RebalanceStepResult>> { if (request.payload.scenario === 'BATCH_FAIL') throw new Error('batch creation failed'); return await this.complete(request, 'rebalance-batch', { accepted: true }); }
+  public async createManualOrderIntents(request: RebalanceExecutionRequest): Promise<ActivityResponse<RebalanceStepResult>> { return await this.complete(request, 'manual-order-intents', { accepted: true }); }
+  public async recordFills(request: RebalanceExecutionRequest): Promise<ActivityResponse<RebalanceStepResult>> { return await this.complete(request, 'fills', { fillStatus: request.payload.scenario === 'UNKNOWN_ACCEPTANCE' ? 'UNKNOWN' : request.payload.scenario === 'FILL_PARTIAL' ? 'PARTIAL' : 'COMPLETE' }); }
+  public async releaseBudget(request: RebalanceExecutionRequest): Promise<ActivityResponse<RebalanceStepResult>> { return await this.complete(request, 'budget-release', { reservationStatus: 'RELEASED' }); }
+
+  private async complete(request: RebalanceExecutionRequest, artifactName: string, fields: Omit<RebalanceStepResult, 'artifactRef'>): Promise<ActivityResponse<RebalanceStepResult>> {
+    validateRebalanceRequest(request);
+    const existing = this.completed.get(`${request.idempotencyKey}:${artifactName}`);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.decisionId}`, sha256: `${request.idempotencyKey}${artifactName}`.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
+    const response = { correlationId: request.correlationId, result: { artifactRef, ...fields }, artifactRefs: [artifactRef] };
+    this.completed.set(`${request.idempotencyKey}:${artifactName}`, response);
     return response;
   }
 }
