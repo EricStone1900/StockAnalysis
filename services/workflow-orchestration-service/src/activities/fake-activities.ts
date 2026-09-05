@@ -2,6 +2,7 @@ import { type ActivityRequest, type ActivityResponse, validateActivityRequest } 
 import type { DailyQuantActivityResult, DailyQuantActivities, DailyQuantRequest } from '../workflows/daily-quant.contract.js';
 import type { NewsActivityResult, NewsAnalysisActivities, NewsWorkflowRequest } from '../workflows/news-analysis.contract.js';
 import type { MarketMonitorActivities, MarketMonitorRequest, MarketMonitorStepResult } from '../workflows/market-monitor.contract.js';
+import type { MarketRegimeActivities, MarketRegimeRequest, MarketRegimeStepResult } from '../workflows/market-regime.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -74,6 +75,23 @@ export class FakeMarketMonitorActivities implements MarketMonitorActivities {
     const artifactRef = { uri: `artifact://${artifactName}/${request.payload.windowStart}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
     const result: MarketMonitorStepResult = { artifactRef, ...(typeof value === 'boolean' ? { marketOpen: value } : { severity: value }) };
     const response = { correlationId: request.correlationId, result, artifactRefs: [artifactRef] };
+    this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeMarketRegimeActivities implements MarketRegimeActivities {
+  private readonly completed = new Map<string, ActivityResponse<MarketRegimeStepResult>>();
+  public async generateRegimeSnapshot(request: MarketRegimeRequest): Promise<ActivityResponse<MarketRegimeStepResult>> { return await this.complete(request, 'regime-snapshot', request.payload.universeVersion.includes('changed')); }
+  public async analyzeMarketState(request: MarketRegimeRequest): Promise<ActivityResponse<MarketRegimeStepResult>> { return await this.complete(request, 'market-state-assessment', false); }
+  public async publishRegimeAssessment(request: MarketRegimeRequest): Promise<ActivityResponse<MarketRegimeStepResult>> { return await this.complete(request, 'regime-assessment-event', false); }
+
+  private async complete(request: MarketRegimeRequest, artifactName: string, changeDetected: boolean): Promise<ActivityResponse<MarketRegimeStepResult>> {
+    validateActivityRequest(request);
+    const existing = this.completed.get(request.idempotencyKey);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.asOf}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
+    const response = { correlationId: request.correlationId, result: { artifactRef, changeDetected }, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
     return response;
   }
