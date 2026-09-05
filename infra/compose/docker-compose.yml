@@ -218,6 +218,24 @@ services:
       timeout: 3s
       retries: 20
 
+  agent-service:
+    build:
+      context: ../..
+      dockerfile: services/agent-service/Dockerfile
+    environment:
+      AGENT_ID: ${AGENT_ID:-stock-analysis}
+      AGENT_MODEL_PROFILE: ${AGENT_MODEL_PROFILE:-fake}
+      AGENT_PROMPT_VERSION: ${AGENT_PROMPT_VERSION:-fake-prompt-v1}
+      AGENT_TASK_QUEUE: ${AGENT_TASK_QUEUE:-agent-stock-analysis}
+      AGENT_DURABLE_CONSUMER: ${AGENT_DURABLE_CONSUMER:-agent-stock-analysis-v1}
+      AGENT_ALLOWED_TOOLS: ${AGENT_ALLOWED_TOOLS:-}
+    ports: ["3009:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 secrets:
   postgres_password: { file: ./secrets/postgres_password }
   temporal_postgres_password: { file: ./secrets/temporal_postgres_password }

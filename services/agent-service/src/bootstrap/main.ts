@@ -4,6 +4,7 @@ import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
 import { log } from '@stock/observability';
 import { FakeAnalysisEntrypoints, type FakeAnalysisCommand } from '../application/agent-entrypoints.js';
+import { readAgentDeployment } from '../application/deployment-config.js';
 
 const serviceName = 'agent-service';
 const entrypoints = new FakeAnalysisEntrypoints();
@@ -23,5 +24,5 @@ class AgentRunController {
 }
 
 @Module({ controllers: [HealthController, AgentRunController] }) class AppModule {}
-async function bootstrap() { const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName }); const app = await NestFactory.create(AppModule, new FastifyAdapter()); await app.listen(config.PORT, '0.0.0.0'); log('service.started', { service: serviceName }); }
+async function bootstrap() { const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName }); const deployment = readAgentDeployment(process.env); const app = await NestFactory.create(AppModule, new FastifyAdapter()); await app.listen(config.PORT, '0.0.0.0'); log('service.started', { service: serviceName, agentId: deployment.agentId, taskQueue: deployment.taskQueue }); }
 if (process.env.NODE_ENV !== 'test') void bootstrap();
