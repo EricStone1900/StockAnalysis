@@ -1,11 +1,19 @@
 import os
+from datetime import UTC, datetime
+from decimal import Decimal
 
 from fastapi import FastAPI, HTTPException
 
 from quant_research.daily_analysis import (
+    DailyAnalysisInput,
+    DailyAnalysisService,
+    DailyCandidateAnalysis,
+    DailyHoldingAnalysis,
+    DailyQualitySummary,
     InMemoryDailyAnalysisRepository,
     PostgresDailyAnalysisRepository,
 )
+from quant_research.domain import DataQualityStatus
 from quant_research.metadata_repository import (
     InMemoryResearchMetadataRepository,
     PostgresResearchMetadataRepository,
@@ -37,6 +45,39 @@ daily_analysis_repository = (
     if _daily_database_url
     else InMemoryDailyAnalysisRepository()
 )
+
+
+def _seed_fast_fixture() -> None:
+    """仅供本地验收；默认关闭，避免生产伪造业务快照。"""
+    if os.getenv("QUANT_RESEARCH_SEED_FIXTURE") != "1":
+        return
+    now = datetime.now(UTC)
+    as_of_date = now.date()
+    run_id = f"local-fast-fixture-{as_of_date.isoformat()}"
+    service = DailyAnalysisService(daily_analysis_repository)
+    service.start(
+        run_id,
+        as_of_date,
+        DailyAnalysisInput(
+            data_version_id="local-fast-data-version",
+            universe_version="local-fast-universe-v1",
+            factor_set_version="local-fast-factors-v1",
+            model_version="local-fast-model-v1",
+            quality_status=DataQualityStatus.WARN,
+        ),
+        now,
+    )
+    service.publish(
+        run_id,
+        (DailyCandidateAnalysis(security_id="SSE:600000", rank=1, score=Decimal("0.8"), signals=("FAST_FIXTURE",)),),
+        (DailyHoldingAnalysis(security_id="SSE:600000", target_weight=Decimal(0), in_candidate_universe=True, signals=()),),
+        DailyQualitySummary(status=DataQualityStatus.WARN, excluded_count=0, warning_reasons=("FAST_LOCAL_FIXTURE",)),
+        ("local-fast-data-version", "local-fast-fixture"),
+        now,
+    )
+
+
+_seed_fast_fixture()
 
 
 @app.get("/live")

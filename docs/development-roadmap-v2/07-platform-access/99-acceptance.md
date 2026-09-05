@@ -38,6 +38,7 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - 真实链路验证：`market-data-service → platform-api-service → Web` 已联通；Dashboard 返回真实 DataVersion、市场数据服务状态和 `WARN` 质量状态。
 - 真实接口响应包含安全 Header；未授权请求保持 `RBAC_DENIED`，带 `web-user + RESEARCH_READ` 的本地只读请求成功。
 - `dailyAnalysisSnapshot` 已通过 quant-research-service 的只读 `latest` 端点接入 Dashboard；没有已发布快照时返回 `DAILY_ANALYSIS_NOT_READY`，不伪造业务数据。
+- 本地 Fast 验收可显式设置 `QUANT_RESEARCH_SEED_FIXTURE=1` 启动 quant-research-service，发布一份带 `WARN` 质量标识的可重复 fixture；该开关默认关闭，不得用于生产。
 - Dashboard 已新增 Agent 服务只读目录卡片；Platform API 通过 `AGENT_SERVICE_URL` 检查 Agent 服务并声明四个 `fast` 专业 Agent，不向浏览器暴露 Agent 内部运行入口。
 - 新增 `GET /api/v1/agent-runs/:correlationId` 只读代理；`RESEARCH_READ` 可获取 AgentRun，缺少该角色返回 `403`，不存在的运行返回 `404`。Mac 本地成功读取 `stock-analysis:v1` 的输出与证据字段。
 - Web 支持通过 `?agentRun=<correlationId>` 展示 AgentRun 只读详情卡片；未找到运行时显示明确提示，不改变默认 Dashboard 页面。
