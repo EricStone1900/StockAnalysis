@@ -30,3 +30,13 @@ export async function fetchConfiguredDashboard(fetchImpl: typeof fetch = fetch):
   if (import.meta.env?.VITE_USE_MOCK_API === 'true') return { data: mockDashboard, status: 'OK', fetchedAt: Date.now() };
   return await fetchDashboard(fetchImpl);
 }
+
+export async function checkCompatibility(fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const response = await fetchImpl('/api/v1/compatibility', { headers: { 'x-client-version': 'v1' } });
+    if (!response.ok) return false;
+    return (await response.json() as { compatible?: boolean }).compatible === true;
+  } catch {
+    return false;
+  }
+}

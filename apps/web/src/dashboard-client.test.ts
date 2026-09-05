@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchConfiguredDashboard, fetchDashboard } from './dashboard-client.js';
+import { checkCompatibility, fetchConfiguredDashboard, fetchDashboard } from './dashboard-client.js';
 
 const response = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -19,5 +19,10 @@ describe('dashboard query', () => {
   it('keeps the default path on the real BFF', async () => {
     const result = await fetchConfiguredDashboard(async () => response(503, {}));
     expect(result.status).toBe('UNAVAILABLE');
+  });
+
+  it('detects incompatible API versions', async () => {
+    expect(await checkCompatibility(async () => response(200, { compatible: false }))).toBe(false);
+    expect(await checkCompatibility(async () => response(200, { compatible: true }))).toBe(true);
   });
 });

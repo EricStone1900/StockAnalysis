@@ -17,5 +17,6 @@ describe('platform security primitives', () => {
     repository.append(createAudit({ requestId: 'req-1', correlationId: 'corr-1', actorId: 'user-1', action: 'dashboard.read', occurredAt: '2026-09-04T00:00:00Z' }));
     expect(repository.list()).toHaveLength(1);
     expect(toProblemDetails(new Error('missing role: ADMIN'), 'req-1').status).toBe(403);
+    expect(toProblemDetails(new Error('boom'), 'req-2').type).toContain('/problems/platform-api');
   });
 });

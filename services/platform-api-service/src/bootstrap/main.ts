@@ -8,6 +8,7 @@ import { log } from '@stock/observability';
 import { DashboardFacade } from '../application/dashboard-facade.js';
 import { createAudit, InMemoryAuditRepository, principalFromHeaders } from '../application/security.js';
 import { compatibleVersion, readFeatureFlags, securityHeaders } from '../application/compatibility.js';
+import { ProblemDetailsFilter } from '../application/problem-details.filter.js';
 
 const serviceName = 'platform-api-service';
 const dashboardFacade = new DashboardFacade(new GeneratedMarketDataClient(process.env.MARKET_DATA_SERVICE_URL ?? 'http://localhost:3000'));
@@ -50,6 +51,7 @@ class AppModule {}
 async function bootstrap() {
   const config = readServiceConfig({ ...process.env, SERVICE_NAME: serviceName });
   const app = await NestFactory.create(AppModule, new FastifyAdapter());
+  app.useGlobalFilters(new ProblemDetailsFilter());
   app.getHttpAdapter().getInstance().addHook('onSend', async (_request: unknown, reply: { header: (name: string, value: string) => void }) => {
     for (const [name, value] of Object.entries(securityHeaders())) reply.header(name, value);
   });
