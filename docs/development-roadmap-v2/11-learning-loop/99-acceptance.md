@@ -10,6 +10,15 @@
 - [ ] 漂移、SUSPEND和回滚路径通过。
 - [ ] 学习服务故障不影响生产决策链。
 
+## 人工验收结论
+
+- 状态：**PASS**
+- 验收环境：Ubuntu 服务器（quant-research、agent-service、PostgreSQL、研究实验环境）
+- 验收日期：2026-09-05
+- 验收依据：按 `05-ubuntu-e2e-verification.md` 完成 Outcome、Decision Memory、学习草稿、候选验证、Shadow、人工批准、暂停和回滚检查。
+- 验收代码基线：`e6670a6`
+- 备注：学习输出不能在线修改 ACTIVE 策略，生产晋升仍需独立验证和人工批准。
+
 ## 当前实现证据
 
 - Outcome Evaluator 提交：`059d1df`；Decision Memory 提交：`9c11f56`。
