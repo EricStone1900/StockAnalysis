@@ -11,3 +11,11 @@
 - [ ] UNKNOWN和对账差异失败关闭。
 - [ ] 自动交易Feature Flag仍关闭。
 - [ ] Runbook和审计导出可由其他人员执行。
+
+## 当前实现证据
+
+- Temporal 基础契约提交：`91a2fb4`；日频量化工作流：`10a4691`；新闻工作流：`37aad02`；盯盘工作流：`835bfd1`；市场状态工作流：`46931c1`。
+- 投资决策工作流提交：`3be2a74`；人工审批工作流：`ff441d5`；调仓执行工作流：`5bd2333`；可靠性策略：`da30ea0`。
+- Mac 本地 ESLint、TypeScript 和 29 项工作流单元测试通过。
+- 已覆盖幂等 Activity、Artifact 引用、门控与 HOLD 短路、人工 Signal、预算释放、UNKNOWN 成交和安全 Feature Flag。
+- 阶段10尚未最终验收，必须完成 `06-ubuntu-e2e-verification.md` 并记录 Temporal/NATS/数据库/Worker 证据。
