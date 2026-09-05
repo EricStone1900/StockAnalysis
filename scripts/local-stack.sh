@@ -8,7 +8,8 @@ case "$action" in config|up|status) ;; *) echo '用法: bash scripts/local-stack
 case "$group" in
   infra) services=(postgres nats minio redis otel-collector);;
   research) services=(postgres nats minio market-data-service quant-research-service platform-api-service web);;
-  manual-services) services=(postgres nats minio market-data-service quant-research-service portfolio-risk-service decision-governance-service trade-execution-service platform-api-service web);;
+  # P0最小闭环不依赖Qlib/行情/Web，避免Apple Silicon构建无关服务阻塞验证。
+  manual-services) services=(postgres nats portfolio-risk-service decision-governance-service trade-execution-service);;
   full-demo) services=(postgres temporal-postgres temporal nats redis minio otel-collector market-data-service quant-research-service portfolio-risk-service decision-governance-service trade-execution-service news-intelligence-service market-monitor-service market-regime-service agent-service platform-api-service web);;
   *) echo '未知本地服务组合' >&2; exit 2;;
 esac
@@ -30,7 +31,7 @@ case "$action" in
     for secret_name in postgres_password temporal_postgres_password minio_root_password; do
       if [[ ! -e "$secret_dir/$secret_name" ]]; then openssl rand -hex 32 > "$secret_dir/$secret_name"; fi
     done
-    echo "启动本地组合: $group；manual-services不表示真实授权闭环已验收，full-demo含Fake Agent。"
+    echo "启动本地组合: ${group}；manual-services不表示真实授权闭环已验收，full-demo含Fake Agent。"
     "${compose[@]}" up -d --build --wait "${services[@]}"
     ;;
 esac

@@ -14,7 +14,7 @@ export class InternalServiceTokenGuard {
 
 @Controller('/internal/v1/execution-authorizations')
 export class ExecutionAuthorizationController {
-  constructor(private readonly service: GovernanceService, @Inject('ResourceReservationReader') private readonly resources: ResourceReservationReader, private readonly guard = new InternalServiceTokenGuard()) {}
+  constructor(@Inject(GovernanceService) private readonly service: GovernanceService, @Inject('ResourceReservationReader') private readonly resources: ResourceReservationReader, private readonly guard = new InternalServiceTokenGuard()) {}
   @Post()
   async issue(@Headers() headers: Record<string, string | undefined>, @Body() body: ExecutionAuthorizationInput): Promise<ExecutionAuthorizationGrant> {
     this.guard.canActivate(headers);

@@ -9,7 +9,7 @@ bash scripts/local-stack.sh up research
 bash scripts/local-stack.sh status research
 ```
 
-以上命令在仓库根执行。`infra`只启动存储、消息及观测基础设施；`research`增加市场数据、量化、BFF和Web；`manual-services`再增加组合、治理、执行服务；`full-demo`包含当前Compose列出的服务和Fake Agent，不包含尚未接入的真实Workflow/自动研究闭环。
+以上命令在仓库根执行。`infra`只启动存储、消息及观测基础设施；`research`增加市场数据、量化、BFF和Web；`manual-services`启动P0所需的PostgreSQL、NATS、组合、治理和执行最小闭环；`full-demo`包含当前Compose列出的服务和Fake Agent，不包含尚未接入的真实Workflow/自动研究闭环。
 
 Web地址为`http://127.0.0.1:5173`，BFF为3008端口。Vite代理`/api`到BFF；容器使用服务名，本机Vite默认使用127.0.0.1。当前BFF身份头仍是开发契约，只允许本地使用。端口默认绑定loopback。
 
