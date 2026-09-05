@@ -16,6 +16,16 @@ export const denyExecution: ExecutionAuthorization = {
 
 /** HTTP/NATS适配器只需实现此读取端口；验证规则集中在执行边界。 */
 export interface ExecutionAuthorizationGrantReader { getGrant(command: ApprovedExecutionCommand): Promise<ExecutionAuthorizationGrant | undefined>; }
+export class HttpExecutionAuthorizationGrantReader implements ExecutionAuthorizationGrantReader {
+  constructor(private readonly baseUrl: string, private readonly serviceToken: string) {}
+  async getGrant(command: ApprovedExecutionCommand): Promise<ExecutionAuthorizationGrant | undefined> {
+    if (!this.baseUrl || !this.serviceToken || !command.proposalId || !command.resourceReservationId) return undefined;
+    const response = await fetch(`${this.baseUrl.replace(/\/$/, '')}/internal/v1/execution-authorizations`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-token': this.serviceToken }, body: JSON.stringify({ decisionId: command.decisionId, proposalId: command.proposalId, proposalVersion: command.proposalVersion, budgetReservationId: command.budgetReservationId, resourceReservationId: command.resourceReservationId, executionContentHash: command.contentHash, validUntil: command.validUntil }) });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`governance authorization reader returned ${response.status}`);
+    return await response.json() as ExecutionAuthorizationGrant;
+  }
+}
 export class GrantExecutionAuthorization implements ExecutionAuthorization {
   constructor(private readonly reader: ExecutionAuthorizationGrantReader, private readonly now: () => number = Date.now) {}
   async assertAuthorized(command: ApprovedExecutionCommand): Promise<void> {
