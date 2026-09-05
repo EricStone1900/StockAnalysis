@@ -39,7 +39,7 @@
 
 ## 2026-09-05 P1 REAL_E2E 验收记录
 
-- 提交：`e8c6342`（P1修复回归测试提交待合并）；本地镜像由该工作区构建，数据库迁移沿用治理、执行和组合风险现有迁移。
+- 提交：`0b0be6e`（包含 `e8c6342` 的实现修复）；本地镜像由该工作区构建，数据库迁移沿用治理、执行和组合风险现有迁移。
 - 环境：macOS 本机 Docker Desktop，PostgreSQL、NATS、Temporal、治理服务、组合风险服务、交易执行服务和真实 Temporal Rebalance Worker。
 - 工作流：`e2e-workflow-1788607435529`，Task Queue `stock-rebalance-v1`，Temporal 状态 `Completed`，History length `29`。
 - 执行批次：`rebalance-e2e-workflow-1788607435529`，Intent 状态 `FILLED`；成交事件通过 Execution Outbox 发布并由 Portfolio Inbox 去重接收。
