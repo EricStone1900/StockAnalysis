@@ -6,12 +6,15 @@ import { log } from '@stock/observability';
 import { Pool } from 'pg';
 import { readFile } from 'node:fs/promises';
 import { FakeAnalysisEntrypoints, type FakeAnalysisCommand } from '../application/agent-entrypoints.js';
+import { SpecialistEntrypoints, type SpecialistCommand } from '../application/specialist-entrypoints.js';
 import { readAgentDeployment } from '../application/deployment-config.js';
 import { PostgresAgentRunRepository } from '../infrastructure/postgres-agent-run-repository.js';
 
 const serviceName = 'agent-service';
 const databasePool = process.env.AGENT_DATABASE_URL ? new Pool({ connectionString: process.env.AGENT_DATABASE_URL, max: 5 }) : undefined;
-const entrypoints = new FakeAnalysisEntrypoints(databasePool ? new PostgresAgentRunRepository(databasePool) : undefined);
+const agentRunRepository = databasePool ? new PostgresAgentRunRepository(databasePool) : undefined;
+const entrypoints = new FakeAnalysisEntrypoints(agentRunRepository);
+const specialistEntrypoints = new SpecialistEntrypoints(agentRunRepository);
 
 @Controller()
 class HealthController {
@@ -25,6 +28,18 @@ class HealthController {
 class AgentRunController {
   @Post('/fake-analysis')
   async runFake(@Body() command: FakeAnalysisCommand) { return await entrypoints.execute(command); }
+
+  @Post('/stock-analysis')
+  async runStockAnalysis(@Body() command: SpecialistCommand<unknown>) { return await specialistEntrypoints.stockAnalysis(command as never); }
+
+  @Post('/financial-news')
+  async runFinancialNews(@Body() command: SpecialistCommand<unknown>) { return await specialistEntrypoints.financialNews(command as never); }
+
+  @Post('/market-monitor')
+  async runMarketMonitor(@Body() command: SpecialistCommand<unknown>) { return await specialistEntrypoints.marketMonitor(command as never); }
+
+  @Post('/market-state')
+  async runMarketState(@Body() command: SpecialistCommand<unknown>) { return await specialistEntrypoints.marketState(command as never); }
 }
 
 @Module({ controllers: [HealthController, AgentRunController] }) class AppModule {}

@@ -25,3 +25,11 @@
 - 验收依据：按 `05-ubuntu-e2e-verification.md` 完成六 Agent 隔离、专业 Agent 边界、组合级 Proposal、风险复核、Golden 回归和恢复检查。
 - 验收代码基线：`5df7ffd`
 - 备注：真实 Provider 的生产凭证和具体业务 Prompt 仍按后续发布阶段配置，不影响阶段09基础能力验收。
+
+## 2026-09-05 本地 Fast 只读入口记录
+
+- 新增四个专业 Agent 的 HTTP 只读入口：`stock-analysis`、`financial-news`、`market-monitor`、`market-state`。
+- 入口统一接受 `correlationId + input + inputArtifacts`，通过 `AgentRunner` 校验结构化输出，并以 `correlationId` 幂等恢复 AgentRun；不写领域事实、不调用交易或策略插件。
+- Mac 本地验证：Agent 服务 ESLint、TypeScript、44 项单元测试通过（1 项 PostgreSQL 集成测试因环境未配置跳过）。
+- `stock-analysis` 本地 Fast Fixture 真实 HTTP 验证通过，返回 `stock-analysis:v1`、证据引用和 `toolCalls=[]`；相同 `correlationId` 重试返回同一 `runId`。
+- 本轮开发不启用 `exact`，所有数据输入仍按 `fast/WARN/CANDIDATE` 处理；真实 Provider 与生产凭证保持关闭。
