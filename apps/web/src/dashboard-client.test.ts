@@ -16,6 +16,17 @@ describe('dashboard query', () => {
     expect(result.data?.dataVersion.status).toBe('STALE');
   });
 
+  it('sends the explicit local read-only identity to the BFF', async () => {
+    let headers: HeadersInit | undefined;
+    await fetchDashboard(async (input, init) => {
+      headers = init?.headers;
+      return response(200, { dataVersion: { status: 'OK' }, dailyAnalysisSnapshot: { status: 'UNAVAILABLE' }, services: {} });
+    }, 1);
+    const normalized = new Headers(headers);
+    expect(normalized.get('x-actor-id')).toBe('web-user');
+    expect(normalized.get('x-roles')).toBe('RESEARCH_READ');
+  });
+
   it('keeps the default path on the real BFF', async () => {
     const result = await fetchConfiguredDashboard(async () => response(503, {}));
     expect(result.status).toBe('UNAVAILABLE');

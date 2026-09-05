@@ -15,7 +15,10 @@ export const mockDashboard: DashboardData = {
 
 export async function fetchDashboard(fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<DashboardQueryResult> {
   try {
-    const response = await fetchImpl('/api/v1/dashboard', { headers: { 'x-roles': 'RESEARCH_READ' } });
+    // 本地开发身份仅用于阶段07的只读页面验证；生产认证由BFF/网关提供。
+    const response = await fetchImpl('/api/v1/dashboard', {
+      headers: { 'x-actor-id': 'web-user', 'x-roles': 'RESEARCH_READ' },
+    });
     if (response.status === 403) return { status: 'FORBIDDEN', error: '没有访问权限', fetchedAt: now };
     if (!response.ok) return { status: 'UNAVAILABLE', error: `Dashboard 请求失败：${response.status}`, fetchedAt: now };
     const data = await response.json() as DashboardData;

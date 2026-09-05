@@ -30,3 +30,11 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - [ ] 补齐当前提交、镜像、迁移、契约版本与报告路径。
 - [ ] 完成本阶段新增真实场景；授权、资金、幂等和恢复任一失败判FAIL。
 - [ ] 记录风险、回滚目标和签署人，不以新增文档替代运行验证。
+
+## 2026-09-05 当前提交本地真实闭环记录
+
+- 修复 Web Dashboard 请求缺少 `x-actor-id` 的问题；本地只读身份现在显式发送 `web-user`，生产认证仍由 BFF/网关负责。
+- Mac 原生验证：platform-api lint、typecheck、8 项测试通过；Web lint、typecheck、7 项测试和生产构建通过。
+- 真实链路验证：`market-data-service → platform-api-service → Web` 已联通；Dashboard 返回真实 DataVersion、市场数据服务状态和 `WARN` 质量状态。
+- 真实接口响应包含安全 Header；未授权请求保持 `RBAC_DENIED`，带 `web-user + RESEARCH_READ` 的本地只读请求成功。
+- 当前 `dailyAnalysisSnapshot` 因生成 Client 尚未接入仍为 `GENERATED_CLIENT_NOT_AVAILABLE`，不阻塞只读 Dashboard，但不能视为完整业务页面已完成。
