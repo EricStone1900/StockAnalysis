@@ -24,7 +24,8 @@ export class ExecutionAuthorizationService {
     if (!resource || resource.reservationId !== input.resourceReservationId || resource.status !== 'DISPATCHING') throw new Error('resource reservation is not dispatching');
     if (resource.decisionId !== input.decisionId || resource.proposalVersion !== proposal.proposalVersion || resource.ledgerVersion !== proposal.targetPortfolioVersion || resource.riskEvaluationId !== proposal.riskReview?.evaluationId || resource.riskPolicyVersion !== proposal.riskReview?.policyVersion || resource.executionContentHash !== input.executionContentHash) throw new Error('execution authority references do not match');
     if (!/^[a-f0-9]{64}$/.test(input.executionContentHash) || !Date.parse(input.validUntil) || new Date(input.validUntil) <= now) throw new Error('invalid execution authorization expiry');
-    const approvalId = createHash('sha256').update(JSON.stringify({ proposalId: proposal.proposalId, proposalVersion: proposal.proposalVersion, approval: proposal.approval })).digest('hex');
+    const approval = proposal.approval;
+    const approvalId = createHash('sha256').update(JSON.stringify({ proposalId: proposal.proposalId, proposalVersion: proposal.proposalVersion, approval: { actorId: approval.actorId, decision: approval.decision, reason: approval.reason, decidedAt: approval.decidedAt } })).digest('hex');
     return { decisionId: input.decisionId, proposalVersion: proposal.proposalVersion, approvalId, riskEvaluationId: resource.riskEvaluationId, budgetReservationId: budget.reservationId, resourceReservationId: resource.reservationId, targetPortfolioVersion: proposal.targetPortfolioVersion, executionContentHash: input.executionContentHash, validUntil: input.validUntil };
   }
 }

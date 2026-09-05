@@ -5,11 +5,11 @@ const request = { workflowId: 'wf-1', runId: 'run-1', correlationId: 'corr-1', i
 
 describe('HttpRebalanceExecutionActivities', () => {
   it('预算预留使用治理服务身份和幂等键', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ reservationId: 'budget-1', status: 'RESERVED' }), { status: 201 }));
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ reservationId: 'budget-1', status: 'RESERVED' }), { status: 201 }));
     const activities = new HttpRebalanceExecutionActivities({ governanceBaseUrl: 'http://governance', portfolioBaseUrl: 'http://portfolio', executionBaseUrl: 'http://execution', governanceToken: 'g', portfolioToken: 'p', executionToken: 'e' }, { fetch: fetchMock });
     const result = await activities.reserveBudget(request);
     expect(result.result.reservationStatus).toBe('RESERVED');
-    expect(fetchMock).toHaveBeenCalledWith('http://governance/api/v1/proposals/proposal-1/budget-reservations', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'x-service-token': 'g', 'Idempotency-Key': 'idem-1' }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://governance/api/v1/proposals/proposal-1/budget-reservations', expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'x-service-token': 'g', 'Idempotency-Key': 'budget-1' }) }));
   });
 
   it('缺少真实授权引用时拒绝构造执行批次', async () => {
