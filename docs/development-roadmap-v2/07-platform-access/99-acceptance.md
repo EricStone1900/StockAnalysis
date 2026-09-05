@@ -17,7 +17,7 @@
 
 - 当前提交：`0b294ba`、`accefc6`、`c58ed99`、`cf2fd89`、`65a222e`。
 - Platform API 单元与集成测试共8项通过；contracts 生成检查和契约测试通过。
-- Web 测试6项通过，ESLint、TypeScript和生产构建通过。
+- Web 测试8项通过，ESLint、TypeScript和生产构建通过。
 - 已覆盖 Dashboard 部分失败、RBAC、请求审计、Problem Details、版本兼容、Mock/BFF切换和错误边界。
 - 当前整改提交仍需重新验证：真实 Compose 启动、BFF 到 market-data 的真实调用、反向代理安全 Headers、SSE、真实认证和无障碍检查。
 
@@ -40,3 +40,4 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - 当前 `dailyAnalysisSnapshot` 因生成 Client 尚未接入仍为 `GENERATED_CLIENT_NOT_AVAILABLE`，不阻塞只读 Dashboard，但不能视为完整业务页面已完成。
 - Dashboard 已新增 Agent 服务只读目录卡片；Platform API 通过 `AGENT_SERVICE_URL` 检查 Agent 服务并声明四个 `fast` 专业 Agent，不向浏览器暴露 Agent 内部运行入口。
 - 新增 `GET /api/v1/agent-runs/:correlationId` 只读代理；`RESEARCH_READ` 可获取 AgentRun，缺少该角色返回 `403`，不存在的运行返回 `404`。Mac 本地成功读取 `stock-analysis:v1` 的输出与证据字段。
+- Web 支持通过 `?agentRun=<correlationId>` 展示 AgentRun 只读详情卡片；未找到运行时显示明确提示，不改变默认 Dashboard 页面。
