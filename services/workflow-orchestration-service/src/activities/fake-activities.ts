@@ -1,6 +1,7 @@
 import { type ActivityRequest, type ActivityResponse, validateActivityRequest } from './activity-contract.js';
 import type { DailyQuantActivityResult, DailyQuantActivities, DailyQuantRequest } from '../workflows/daily-quant.contract.js';
 import type { NewsActivityResult, NewsAnalysisActivities, NewsWorkflowRequest } from '../workflows/news-analysis.contract.js';
+import type { MarketMonitorActivities, MarketMonitorRequest, MarketMonitorStepResult } from '../workflows/market-monitor.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -54,6 +55,25 @@ export class FakeNewsAnalysisActivities implements NewsAnalysisActivities {
     if (existing) return existing;
     const artifactRef = { uri: `artifact://${artifactName}/${request.payload.sourceWindow}`, sha256: `${request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64)}` };
     const response = { correlationId: request.correlationId, result: { artifactRef }, artifactRefs: [artifactRef] };
+    this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeMarketMonitorActivities implements MarketMonitorActivities {
+  private readonly completed = new Map<string, ActivityResponse<MarketMonitorStepResult>>();
+  public async checkMarketOpen(request: MarketMonitorRequest): Promise<ActivityResponse<MarketMonitorStepResult>> { return await this.complete(request, 'market-open-check', true); }
+  public async loadAnomalySnapshot(request: MarketMonitorRequest): Promise<ActivityResponse<MarketMonitorStepResult>> { return await this.complete(request, 'anomaly-snapshot', request.payload.windowStart.includes('low') ? 'LOW' : 'HIGH'); }
+  public async assessAnomaly(request: MarketMonitorRequest): Promise<ActivityResponse<MarketMonitorStepResult>> { return await this.complete(request, 'anomaly-assessment', 'HIGH'); }
+  public async publishMonitorAssessment(request: MarketMonitorRequest): Promise<ActivityResponse<MarketMonitorStepResult>> { return await this.complete(request, 'monitor-assessment-event', 'HIGH'); }
+
+  private async complete(request: MarketMonitorRequest, artifactName: string, value: true | MarketMonitorStepResult['severity']): Promise<ActivityResponse<MarketMonitorStepResult>> {
+    validateActivityRequest(request);
+    const existing = this.completed.get(request.idempotencyKey);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.windowStart}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
+    const result: MarketMonitorStepResult = { artifactRef, ...(typeof value === 'boolean' ? { marketOpen: value } : { severity: value }) };
+    const response = { correlationId: request.correlationId, result, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
     return response;
   }
