@@ -35,6 +35,10 @@ export class SpecialistEntrypoints {
     return await this.execute(command, marketStateDefinition);
   }
 
+  public async get(correlationId: string): Promise<AgentRun<unknown> | undefined> {
+    return await this.repository.get(correlationId);
+  }
+
   private async execute<TInput, TOutput>(
     command: SpecialistCommand<TInput>,
     definition: AgentDefinition<TInput, TOutput>,

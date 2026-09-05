@@ -39,3 +39,4 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - 真实接口响应包含安全 Header；未授权请求保持 `RBAC_DENIED`，带 `web-user + RESEARCH_READ` 的本地只读请求成功。
 - 当前 `dailyAnalysisSnapshot` 因生成 Client 尚未接入仍为 `GENERATED_CLIENT_NOT_AVAILABLE`，不阻塞只读 Dashboard，但不能视为完整业务页面已完成。
 - Dashboard 已新增 Agent 服务只读目录卡片；Platform API 通过 `AGENT_SERVICE_URL` 检查 Agent 服务并声明四个 `fast` 专业 Agent，不向浏览器暴露 Agent 内部运行入口。
+- 新增 `GET /api/v1/agent-runs/:correlationId` 只读代理；`RESEARCH_READ` 可获取 AgentRun，缺少该角色返回 `403`，不存在的运行返回 `404`。Mac 本地成功读取 `stock-analysis:v1` 的输出与证据字段。

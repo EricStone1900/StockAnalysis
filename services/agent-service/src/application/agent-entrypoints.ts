@@ -16,4 +16,9 @@ export class FakeAnalysisEntrypoints {
 
   public async consumeNats(command: FakeAnalysisCommand): Promise<AgentRun<{ summary: string }>> { return await this.execute(command); }
   public async temporalActivity(command: FakeAnalysisCommand): Promise<AgentRun<{ summary: string }>> { return await this.execute(command); }
+
+  public async get(correlationId: string): Promise<AgentRun<{ summary: string }> | undefined> {
+    const run = await this.repository.get(correlationId);
+    return run as AgentRun<{ summary: string }> | undefined;
+  }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Module } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Headers, Module, NotFoundException, Param } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { GeneratedMarketDataClient } from '@stock/contracts';
@@ -40,6 +40,15 @@ class DashboardController {
   @Get('/compatibility')
   compatibility(@Headers('x-client-version') clientVersion: string | undefined) {
     return { compatible: compatibleVersion(clientVersion), apiVersion: 'v1', featureFlags };
+  }
+
+  @Get('/agent-runs/:correlationId')
+  async agentRun(@Param('correlationId') correlationId: string, @Headers('x-actor-id') actorId: string | undefined, @Headers('x-roles') roles: string | undefined) {
+    const principal = principalFromHeaders(actorId, roles);
+    if (!principal.roles.includes('RESEARCH_READ')) throw new ForbiddenException('missing role: RESEARCH_READ');
+    const result = await dashboardFacade.agentRun(correlationId, principal);
+    if (!result) throw new NotFoundException('AGENT_RUN_NOT_FOUND');
+    return result;
   }
 
   @Get('/audit/events')

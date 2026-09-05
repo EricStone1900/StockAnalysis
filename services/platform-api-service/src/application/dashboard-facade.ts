@@ -17,6 +17,15 @@ export interface DashboardResponse {
   services: Record<string, PartialResult<{ status: 'UP' }>>;
 }
 
+export interface AgentRunResponse {
+  runId: string;
+  definitionId: string;
+  correlationId: string;
+  modelRun: { provider: string; modelId: string; promptVersion: string };
+  toolCalls: readonly unknown[];
+  output: unknown;
+}
+
 export class DashboardFacade {
   public constructor(private readonly marketData: MarketDataClient, private readonly agentServiceUrl = 'http://localhost:3010') {}
 
@@ -35,6 +44,18 @@ export class DashboardFacade {
         'agent-service': { status: agents.status === 'OK' ? 'OK' : 'UNAVAILABLE' },
       },
     };
+  }
+
+  public async agentRun(correlationId: string, principal: Principal): Promise<AgentRunResponse | undefined> {
+    if (!principal.roles.includes('RESEARCH_READ')) return undefined;
+    try {
+      const response = await fetch(new URL(`/internal/v1/agent-runs/${encodeURIComponent(correlationId)}`, this.agentServiceUrl));
+      if (response.status === 404) return undefined;
+      if (!response.ok) throw new Error(`agent service request failed: ${response.status}`);
+      return await response.json() as AgentRunResponse;
+    } catch {
+      return undefined;
+    }
   }
 
   private async agentDirectory(): Promise<PartialResult<{ availableAgents: readonly string[]; mode: 'fast' | 'unavailable' }>> {

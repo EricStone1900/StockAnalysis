@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Module, Post } from '@nestjs/common';
+import { Body, Controller, Get, Module, NotFoundException, Param, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { readServiceConfig } from '@stock/config';
@@ -26,6 +26,13 @@ class HealthController {
 
 @Controller('/internal/v1/agent-runs')
 class AgentRunController {
+  @Get('/:correlationId')
+  async getRun(@Param('correlationId') correlationId: string) {
+    const run = await specialistEntrypoints.get(correlationId) ?? await entrypoints.get(correlationId);
+    if (!run) throw new NotFoundException('AGENT_RUN_NOT_FOUND');
+    return run;
+  }
+
   @Post('/fake-analysis')
   async runFake(@Body() command: FakeAnalysisCommand) { return await entrypoints.execute(command); }
 

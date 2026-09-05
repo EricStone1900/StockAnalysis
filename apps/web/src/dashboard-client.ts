@@ -7,6 +7,15 @@ export interface DashboardQueryResult {
   fetchedAt: number;
 }
 
+export interface AgentRunDetail {
+  runId: string;
+  definitionId: string;
+  correlationId: string;
+  modelRun: { provider: string; modelId: string; promptVersion: string };
+  toolCalls: readonly unknown[];
+  output: unknown;
+}
+
 export const mockDashboard: DashboardData = {
   dataVersion: { status: 'OK', data: { versionId: 'mock-dv-1', status: 'READY' }, asOf: '2026-09-04T00:00:00Z' },
   dailyAnalysisSnapshot: { status: 'UNAVAILABLE', errorCode: 'MOCK_NOT_CONFIGURED' },
@@ -42,5 +51,18 @@ export async function checkCompatibility(fetchImpl: typeof fetch = fetch): Promi
     return (await response.json() as { compatible?: boolean }).compatible === true;
   } catch {
     return false;
+  }
+}
+
+export async function fetchAgentRun(correlationId: string, fetchImpl: typeof fetch = fetch): Promise<AgentRunDetail | undefined> {
+  try {
+    const response = await fetchImpl(`/api/v1/agent-runs/${encodeURIComponent(correlationId)}`, {
+      headers: { 'x-actor-id': 'web-user', 'x-roles': 'RESEARCH_READ' },
+    });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`AgentRun 请求失败：${response.status}`);
+    return await response.json() as AgentRunDetail;
+  } catch {
+    return undefined;
   }
 }
