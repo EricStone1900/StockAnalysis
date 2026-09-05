@@ -8,6 +8,7 @@
 - 验收日期：2026-09-05。
 - 验证范围：隔离环境中的服务启动、质量检查、契约/集成检查，以及 Paper、Shadow、自动执行门禁、`UNKNOWN` 和 Kill Switch 演练。
 - 说明：本结论不包含生产券商真实下单授权；后续上线仍需独立风险批准、小资金白名单和回滚计划。
+- 后续审批包：[06-small-capital-approval.md](./06-small-capital-approval.md)。
 
 ## 验收前置
 
