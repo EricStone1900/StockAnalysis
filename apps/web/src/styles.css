@@ -1,0 +1,6 @@
+:root { font-family: system-ui, sans-serif; color: #182230; background: #f4f6f8; }
+body { margin: 0; } main { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+header { margin-bottom: 24px; } h1 { margin: 0; } .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: white; border: 1px solid #d9dee5; border-left: 5px solid #738096; border-radius: 8px; padding: 16px; min-height: 110px; }
+.card h2 { font-size: 1rem; margin: 0 0 10px; } .status { font-weight: 700; } .status-ok { border-left-color: #20864b; } .status-stale { border-left-color: #b87900; } .status-unavailable, .status-forbidden { border-left-color: #c0392b; }
+.error { background: #fee; color: #901; padding: 12px; border-radius: 6px; } pre { white-space: pre-wrap; font-size: .8rem; }
