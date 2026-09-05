@@ -7,10 +7,10 @@ export class FakeAnalysisEntrypoints {
   public constructor(private readonly repository: AgentRunRepository = new InMemoryAgentRunRepository()) {}
 
   public async execute(command: FakeAnalysisCommand): Promise<AgentRun<{ summary: string }>> {
-    const existing = this.repository.get(command.correlationId);
+    const existing = await this.repository.get(command.correlationId);
     if (existing) return existing;
     const result = await new AgentRunner().run(fakeAnalysisDefinition, { text: command.text }, { correlationId: command.correlationId, inputArtifacts: [] });
-    this.repository.save(result);
+    await this.repository.save(result);
     return result;
   }
 

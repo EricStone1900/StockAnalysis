@@ -223,12 +223,15 @@ services:
       context: ../..
       dockerfile: services/agent-service/Dockerfile
     environment:
+      AGENT_DATABASE_URL: postgresql://agent_runtime:agent_runtime_local_only@postgres:5432/agent_runtime
       AGENT_ID: ${AGENT_ID:-stock-analysis}
       AGENT_MODEL_PROFILE: ${AGENT_MODEL_PROFILE:-fake}
       AGENT_PROMPT_VERSION: ${AGENT_PROMPT_VERSION:-fake-prompt-v1}
       AGENT_TASK_QUEUE: ${AGENT_TASK_QUEUE:-agent-stock-analysis}
       AGENT_DURABLE_CONSUMER: ${AGENT_DURABLE_CONSUMER:-agent-stock-analysis-v1}
       AGENT_ALLOWED_TOOLS: ${AGENT_ALLOWED_TOOLS:-}
+    depends_on:
+      postgres: { condition: service_healthy }
     ports: ["3009:3000"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
