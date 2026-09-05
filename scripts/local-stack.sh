@@ -20,6 +20,10 @@ export NEWS_INTELLIGENCE_DATABASE_URL="${NEWS_INTELLIGENCE_DATABASE_URL:-postgre
 export PORTFOLIO_INTERNAL_TOKEN="${PORTFOLIO_INTERNAL_TOKEN:-local-portfolio-internal-token}"
 export GOVERNANCE_INTERNAL_TOKEN="${GOVERNANCE_INTERNAL_TOKEN:-local-governance-internal-token}"
 export EXECUTION_SERVICE_TOKEN="${EXECUTION_SERVICE_TOKEN:-local-execution-service-token-32chars}"
+# research/full-demo用于Mac本地Fast验收；默认不为其他组合注入业务fixture。
+if [[ "$group" == research || "$group" == full-demo ]]; then
+  export QUANT_RESEARCH_SEED_FIXTURE="${QUANT_RESEARCH_SEED_FIXTURE:-1}"
+fi
 compose=(docker compose -f "$root_dir/infra/compose/docker-compose.yml")
 case "$action" in
   config) "${compose[@]}" config --quiet;;

@@ -111,6 +111,7 @@ services:
       dockerfile: services/quant-research-service/Dockerfile
     environment:
       QUANT_RESEARCH_DATABASE_URL: postgresql://quant_research:quant_research_local_only@postgres:5432/quant_research
+      QUANT_RESEARCH_SEED_FIXTURE: ${QUANT_RESEARCH_SEED_FIXTURE:-0}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY_FILE: /run/secrets/minio_root_password
@@ -255,9 +256,12 @@ services:
       dockerfile: services/platform-api-service/Dockerfile
     environment:
       MARKET_DATA_SERVICE_URL: http://market-data-service:3000
+      QUANT_RESEARCH_SERVICE_URL: http://quant-research-service:3000
+      AGENT_SERVICE_URL: http://agent-service:3000
     ports: ["127.0.0.1:3008:3000"]
     depends_on:
       market-data-service: { condition: service_healthy }
+      quant-research-service: { condition: service_started }
 
   web:
     profiles: [web]
