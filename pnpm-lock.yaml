@@ -88,6 +88,9 @@ importers:
       '@stock/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      zod:
+        specifier: ^3.24.4
+        version: 3.25.76
 
   services/decision-governance-service:
     dependencies:
