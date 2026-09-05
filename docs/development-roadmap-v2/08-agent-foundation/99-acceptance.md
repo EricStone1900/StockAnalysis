@@ -8,3 +8,12 @@
 - [ ] 六个配置隔离部署通过。
 - [ ] 所有失败路径结构化且不会默认放行。
 - [ ] 尚未实现具体业务Agent Prompt。
+
+## 当前实现证据
+
+- 已实现提交：`586e96e`、`a57e5bd`、`8c0806a`、`4fd0ca9`、`f4465f0`、`5a2e0d6`、`c7211a3`。
+- Mac Agent 单元测试 11 项、PostgreSQL 集成测试 1 项通过；ESLint、TypeScript 和 Compose 配置检查通过。
+- 已覆盖 Kernel 结构化输出、Tool 预算、三入口幂等、Provider 降级、Tool/Prompt 白名单、Context Hash、Memory M0、Agent ID 隔离和 AgentRun 恢复。
+- 尚待人工验收：真实六部署、NATS/Temporal、服务账号权限、Provider 全部失败时的 BLOCKED、日志脱敏和 Ubuntu 故障恢复。
+
+人工项目完成前，阶段08保持未验收状态。

@@ -9,3 +9,9 @@
 - Security：无领域数据库写权限、无交易Secret、日志脱敏。
 - Recovery：进程/Provider/NATS/Artifact故障。
 
+## 本机验证记录（Mac）
+
+- Agent 服务单元测试：11 项通过，覆盖 Kernel、入口幂等、模型降级、Tool/Prompt/Memory、部署隔离和 PostgreSQL 仓储。
+- AgentRun PostgreSQL 集成测试：1 项通过，验证迁移、按 `correlationId` 幂等保存和恢复。
+- Agent 服务 ESLint、TypeScript 与 `git diff --check` 通过。
+- 真实 NATS、Temporal、Provider 和 Artifact 恢复仍需在 Ubuntu 环境人工验收。
