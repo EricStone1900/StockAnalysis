@@ -4,7 +4,7 @@ import { PostgresExecutionRepository } from '../infrastructure/postgres-executio
 import { ReconciliationAggregate, type ReconciliationCase } from '../domain/reconciliation.js';
 import { ReconciliationRepository } from '../infrastructure/reconciliation-repository.js';
 import { ExecutionOutboxRepository } from '../infrastructure/execution-outbox-repository.js';
-import { batchCreatedEvent, fillRecordedEvent, reconciliationOpenedEvent } from '../domain/execution-events.js';
+import { batchCompletedEvent, batchCreatedEvent, fillRecordedEvent, reconciliationOpenedEvent } from '../domain/execution-events.js';
 import { denyExecution, type ExecutionAuthorization } from './execution-authorization.js';
 
 export class ExecutionService {
@@ -72,7 +72,9 @@ export class ExecutionService {
     if (repeated) return intent;
     await this.repository?.appendFill(fill);
     await this.repository?.updateIntent(intent);
-    await this.outbox?.append(fillRecordedEvent(fill, this.aggregate.getBatch(batchId), fill.idempotencyKey), batchId);
+    const batch = this.aggregate.getBatch(batchId);
+    await this.outbox?.append(fillRecordedEvent(fill, batch, fill.idempotencyKey), batchId);
+    if (batch?.intents.length && batch.intents.every((intent) => intent.status === 'FILLED')) await this.outbox?.append(batchCompletedEvent(batch, fill.idempotencyKey, fill.occurredAt), batchId);
     return intent;
   }
 
