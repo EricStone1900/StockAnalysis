@@ -1,3 +1,9 @@
 import { expect, it } from 'vitest';
-import { isRetryable } from '../../src/activity-errors.js';
-it('retries only dependency and timeout activity failures', () => { expect(isRetryable('DEPENDENCY')).toBe(true); expect(isRetryable('VALIDATION')).toBe(false); });
+import { blocksWorkflow, isRetryable } from '../../src/activity-errors.js';
+
+it('retries only explicitly retryable activity failures', () => {
+  expect(isRetryable('RETRYABLE')).toBe(true);
+  expect(isRetryable('NON_RETRYABLE')).toBe(false);
+  expect(blocksWorkflow('BLOCKED')).toBe(true);
+  expect(blocksWorkflow('CANCELLED')).toBe(true);
+});
