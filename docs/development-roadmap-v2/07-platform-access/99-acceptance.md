@@ -38,3 +38,4 @@ Ubuntu 人工验收已完成，阶段07可进入后续阶段开发。
 - 真实链路验证：`market-data-service → platform-api-service → Web` 已联通；Dashboard 返回真实 DataVersion、市场数据服务状态和 `WARN` 质量状态。
 - 真实接口响应包含安全 Header；未授权请求保持 `RBAC_DENIED`，带 `web-user + RESEARCH_READ` 的本地只读请求成功。
 - 当前 `dailyAnalysisSnapshot` 因生成 Client 尚未接入仍为 `GENERATED_CLIENT_NOT_AVAILABLE`，不阻塞只读 Dashboard，但不能视为完整业务页面已完成。
+- Dashboard 已新增 Agent 服务只读目录卡片；Platform API 通过 `AGENT_SERVICE_URL` 检查 Agent 服务并声明四个 `fast` 专业 Agent，不向浏览器暴露 Agent 内部运行入口。

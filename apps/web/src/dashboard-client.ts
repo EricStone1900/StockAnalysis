@@ -10,6 +10,7 @@ export interface DashboardQueryResult {
 export const mockDashboard: DashboardData = {
   dataVersion: { status: 'OK', data: { versionId: 'mock-dv-1', status: 'READY' }, asOf: '2026-09-04T00:00:00Z' },
   dailyAnalysisSnapshot: { status: 'UNAVAILABLE', errorCode: 'MOCK_NOT_CONFIGURED' },
+  agents: { status: 'OK', data: { availableAgents: ['stock-analysis', 'financial-news', 'market-monitor', 'market-state'], mode: 'fast' } },
   services: { 'market-data-service': { status: 'OK', data: { status: 'UP' } } },
 };
 

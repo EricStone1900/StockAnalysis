@@ -11,7 +11,10 @@ import { compatibleVersion, readFeatureFlags, securityHeaders } from '../applica
 import { ProblemDetailsFilter } from '../application/problem-details.filter.js';
 
 const serviceName = 'platform-api-service';
-const dashboardFacade = new DashboardFacade(new GeneratedMarketDataClient(process.env.MARKET_DATA_SERVICE_URL ?? 'http://localhost:3000'));
+const dashboardFacade = new DashboardFacade(
+  new GeneratedMarketDataClient(process.env.MARKET_DATA_SERVICE_URL ?? 'http://localhost:3000'),
+  process.env.AGENT_SERVICE_URL ?? 'http://localhost:3010',
+);
 const auditRepository = new InMemoryAuditRepository();
 const featureFlags = readFeatureFlags(process.env);
 

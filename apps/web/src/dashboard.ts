@@ -10,6 +10,7 @@ export interface PartialResult<T> {
 export interface DashboardData {
   dataVersion: PartialResult<{ versionId: string; status: string }>;
   dailyAnalysisSnapshot: PartialResult<never>;
+  agents: PartialResult<{ availableAgents: readonly string[]; mode: 'fast' | 'unavailable' }>;
   services: Record<string, PartialResult<{ status: 'UP' }>>;
 }
 

@@ -13,22 +13,45 @@ export interface PartialResult<T> {
 export interface DashboardResponse {
   dataVersion: PartialResult<MarketDataVersion>;
   dailyAnalysisSnapshot: PartialResult<never>;
+  agents: PartialResult<{ availableAgents: readonly string[]; mode: 'fast' | 'unavailable' }>;
   services: Record<string, PartialResult<{ status: 'UP' }>>;
 }
 
 export class DashboardFacade {
-  public constructor(private readonly marketData: MarketDataClient) {}
+  public constructor(private readonly marketData: MarketDataClient, private readonly agentServiceUrl = 'http://localhost:3010') {}
 
   public async latest(principal: Principal): Promise<DashboardResponse> {
     if (!principal.roles.includes('RESEARCH_READ')) {
-      return { dataVersion: { status: 'FORBIDDEN', errorCode: 'RBAC_DENIED' }, dailyAnalysisSnapshot: { status: 'FORBIDDEN', errorCode: 'RBAC_DENIED' }, services: {} };
+      return { dataVersion: { status: 'FORBIDDEN', errorCode: 'RBAC_DENIED' }, dailyAnalysisSnapshot: { status: 'FORBIDDEN', errorCode: 'RBAC_DENIED' }, agents: { status: 'FORBIDDEN', errorCode: 'RBAC_DENIED' }, services: {} };
     }
     const dataVersion = await this.latestDataVersion();
+    const agents = await this.agentDirectory();
     return {
       dataVersion,
       dailyAnalysisSnapshot: { status: 'UNAVAILABLE', errorCode: 'GENERATED_CLIENT_NOT_AVAILABLE' },
-      services: { 'market-data-service': { status: dataVersion.status === 'OK' ? 'OK' : 'UNAVAILABLE' } },
+      agents,
+      services: {
+        'market-data-service': { status: dataVersion.status === 'OK' ? 'OK' : 'UNAVAILABLE' },
+        'agent-service': { status: agents.status === 'OK' ? 'OK' : 'UNAVAILABLE' },
+      },
     };
+  }
+
+  private async agentDirectory(): Promise<PartialResult<{ availableAgents: readonly string[]; mode: 'fast' | 'unavailable' }>> {
+    try {
+      const response = await fetch(new URL('/version', this.agentServiceUrl));
+      if (!response.ok) return { status: 'UNAVAILABLE', errorCode: 'AGENT_SERVICE_UNAVAILABLE' };
+      return {
+        status: 'OK',
+        data: {
+          availableAgents: ['stock-analysis', 'financial-news', 'market-monitor', 'market-state'],
+          mode: 'fast',
+        },
+        asOf: new Date().toISOString(),
+      };
+    } catch {
+      return { status: 'UNAVAILABLE', errorCode: 'AGENT_SERVICE_UNAVAILABLE' };
+    }
   }
 
   private async latestDataVersion(): Promise<PartialResult<MarketDataVersion>> {
