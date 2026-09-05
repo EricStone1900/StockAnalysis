@@ -75,6 +75,14 @@ def get_training_run(run_id: str) -> object:
     return result
 
 
+@app.get("/api/v1/daily-analysis-snapshots/latest")
+def get_latest_daily_analysis_snapshot() -> object:
+    result = daily_analysis_repository.latest_ready()
+    if result is None:
+        raise HTTPException(status_code=404, detail="latest daily analysis snapshot not found")
+    return result
+
+
 @app.get("/api/v1/daily-analysis-snapshots/{snapshot_id}")
 def get_daily_analysis_snapshot(snapshot_id: str) -> object:
     result = daily_analysis_repository.get(snapshot_id)

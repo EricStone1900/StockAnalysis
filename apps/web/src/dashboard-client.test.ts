@@ -11,7 +11,7 @@ describe('dashboard query', () => {
   });
 
   it('marks stale data without replacing it with an empty object', async () => {
-    const result = await fetchDashboard(async () => response(200, { dataVersion: { status: 'STALE' }, dailyAnalysisSnapshot: { status: 'UNAVAILABLE' }, services: {} }), 1);
+    const result = await fetchDashboard(async () => response(200, { dataVersion: { status: 'STALE' }, dailyAnalysisSnapshot: { status: 'UNAVAILABLE' }, agents: { status: 'UNAVAILABLE' }, services: {} }), 1);
     expect(result.status).toBe('STALE');
     expect(result.data?.dataVersion.status).toBe('STALE');
   });
