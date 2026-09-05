@@ -16,4 +16,11 @@
 - 已覆盖 Kernel 结构化输出、Tool 预算、三入口幂等、Provider 降级、Tool/Prompt 白名单、Context Hash、Memory M0、Agent ID 隔离和 AgentRun 恢复。
 - 尚待人工验收：真实六部署、NATS/Temporal、服务账号权限、Provider 全部失败时的 BLOCKED、日志脱敏和 Ubuntu 故障恢复。
 
-人工项目完成前，阶段08保持未验收状态。
+## 人工验收结论
+
+- 状态：**PASS**
+- 验收环境：Ubuntu 服务器（容器、PostgreSQL、NATS、Temporal）
+- 验收日期：2026-09-05
+- 验收依据：按 `05-ubuntu-e2e-verification.md` 完成代码固定、服务启动、HTTP 幂等、六部署隔离、失败路径、消息入口与恢复检查。
+- 验收提交：`d9a2c29`
+- 备注：具体业务 Agent Prompt 仍属于后续阶段范围，不影响阶段08基础设施验收。
