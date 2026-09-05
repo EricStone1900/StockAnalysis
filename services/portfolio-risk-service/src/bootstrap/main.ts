@@ -13,9 +13,14 @@ import { OutboxWorkerLifecycle } from '../application/outbox-publisher.js';
 import { ResourceReservationService } from '../application/resource-reservation-service.js';
 import { PostgresResourceReservationRepository } from '../infrastructure/postgres-resource-reservation-repository.js';
 import type { ResourceReservationRequest, ResourceReservationStatus } from '@stock/contracts';
+import { connect, type NatsConnection } from 'nats';
+import { ExecutionEventHandler } from '../application/execution-event-handler.js';
+import { ExecutionEventRuntime, JetStreamExecutionSubscription } from '../application/execution-event-runtime.js';
+import { PostgresExecutionInboxRepository } from '../infrastructure/postgres-execution-inbox-repository.js';
 
 const serviceName = 'portfolio-risk-service';
 const databasePool = process.env.PORTFOLIO_DATABASE_URL ? new Pool({ connectionString: process.env.PORTFOLIO_DATABASE_URL, max: 5 }) : undefined;
+let natsConnection: NatsConnection | undefined;
 @Controller()
 export class HealthController {
   @Get('/live') live() { return { status: 'UP' }; }
@@ -29,7 +34,7 @@ export class HealthController {
 }
 @Injectable()
 class DatabaseLifecycle implements OnApplicationShutdown {
-  async onApplicationShutdown(): Promise<void> { if (process.env.NODE_ENV !== 'test' && databasePool) await databasePool.end(); }
+  async onApplicationShutdown(): Promise<void> { if (process.env.NODE_ENV !== 'test' && natsConnection) await natsConnection.drain(); if (process.env.NODE_ENV !== 'test' && databasePool) await databasePool.end(); }
 }
 @Controller('/api/v1/portfolios')
 export class PortfolioController {
@@ -136,6 +141,7 @@ function createPortfolioService(): PortfolioService {
 }
 const portfolioService = createPortfolioService();
 const resourceReservationService = new ResourceReservationService({ latest: (portfolioId) => portfolioService.latest(portfolioId) }, databasePool ? new PostgresResourceReservationRepository(databasePool) : undefined);
+const executionEventHandler = new ExecutionEventHandler(portfolioService, resourceReservationService, databasePool ? new PostgresExecutionInboxRepository(databasePool) : undefined);
 @Injectable() class PortfolioInternalTokenGuard { check(token: string | undefined): void { const expected = process.env.PORTFOLIO_INTERNAL_TOKEN; if (!expected || token !== expected) throw new UnauthorizedException('invalid portfolio service identity'); } }
 @Controller('/internal/v1/portfolio-reservations')
 export class ResourceReservationController {
@@ -162,6 +168,7 @@ async function bootstrap() {
   await migratePortfolioDatabase();
   const app = await NestFactory.create(AppModule, new FastifyAdapter());
   app.enableShutdownHooks();
+  if (process.env.NATS_URL) { natsConnection = await connect({ servers: process.env.NATS_URL }); const manager = await natsConnection.jetstreamManager(); try { await manager.streams.add({ name: 'STOCK_EXECUTION', subjects: ['stock.trade-execution.>'] }); } catch { /* 已存在时复用 */ } await new ExecutionEventRuntime(new JetStreamExecutionSubscription(natsConnection), executionEventHandler).start(); }
   await app.listen(config.PORT, '0.0.0.0');
   log('service.started', { service: serviceName });
 }

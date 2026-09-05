@@ -133,8 +133,10 @@ services:
     environment:
       PORTFOLIO_DATABASE_URL: postgresql://portfolio_risk:portfolio_risk_local_only@postgres:5432/portfolio_risk
       PORTFOLIO_INTERNAL_TOKEN: ${PORTFOLIO_INTERNAL_TOKEN:?set PORTFOLIO_INTERNAL_TOKEN before starting portfolio}
+      NATS_URL: nats://nats:4222
     depends_on:
       postgres: { condition: service_healthy }
+      nats: { condition: service_started }
     ports: ["127.0.0.1:3002:3000"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
@@ -168,7 +170,7 @@ services:
       dockerfile: services/trade-execution-service/Dockerfile
     environment:
       TRADE_EXECUTION_DATABASE_URL: ${TRADE_EXECUTION_DATABASE_URL:?set TRADE_EXECUTION_DATABASE_URL before starting execution}
-      EXECUTION_SERVICE_TOKEN: ${EXECUTION_SERVICE_TOKEN:-}
+      EXECUTION_SERVICE_TOKEN: ${EXECUTION_SERVICE_TOKEN:?set EXECUTION_SERVICE_TOKEN before starting execution}
       GOVERNANCE_AUTHORIZATION_BASE_URL: http://decision-governance-service:3000
       GOVERNANCE_INTERNAL_TOKEN: ${GOVERNANCE_INTERNAL_TOKEN:?set GOVERNANCE_INTERNAL_TOKEN before starting execution}
       NATS_URL: nats://nats:4222

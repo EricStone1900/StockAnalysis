@@ -15,4 +15,15 @@ describe('ExecutionEventHandler', () => {
     await handler.handle({ eventId: 'event-2', subject: 'stock.trade-execution.rebalance-batch.completed.v1', occurredAt: '2026-09-05T01:00:00Z', payload: { resourceReservationId: 'resource-1' } });
     expect(transition).toHaveBeenCalledWith('resource-1', 'SETTLED');
   });
+  it('使用持久化 Inbox 时跨进程重复事件只接受一次', async () => {
+    const accept = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false); const recordConfirmedFill = vi.fn(); const handler = new ExecutionEventHandler({ latest: vi.fn().mockResolvedValue(snapshot), recordConfirmedFill }, { transition: vi.fn() }, { accept });
+    await handler.handle(fill); await handler.handle({ ...fill, eventId: 'event-duplicate' });
+    expect(accept).toHaveBeenCalledTimes(2); expect(recordConfirmedFill).toHaveBeenCalledTimes(1);
+  });
+  it('处理失败时释放持久化 Inbox 记录以便重投', async () => {
+    const inbox = { accept: vi.fn().mockResolvedValue(true), release: vi.fn().mockResolvedValue(undefined) };
+    const handler = new ExecutionEventHandler({ latest: vi.fn().mockResolvedValue(undefined), recordConfirmedFill: vi.fn() }, { transition: vi.fn() }, inbox);
+    await expect(handler.handle(fill)).rejects.toThrow('portfolio snapshot not found');
+    expect(inbox.release).toHaveBeenCalledWith('event-1');
+  });
 });
