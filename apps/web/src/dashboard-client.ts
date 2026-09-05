@@ -7,6 +7,12 @@ export interface DashboardQueryResult {
   fetchedAt: number;
 }
 
+export const mockDashboard: DashboardData = {
+  dataVersion: { status: 'OK', data: { versionId: 'mock-dv-1', status: 'READY' }, asOf: '2026-09-04T00:00:00Z' },
+  dailyAnalysisSnapshot: { status: 'UNAVAILABLE', errorCode: 'MOCK_NOT_CONFIGURED' },
+  services: { 'market-data-service': { status: 'OK', data: { status: 'UP' } } },
+};
+
 export async function fetchDashboard(fetchImpl: typeof fetch = fetch, now = Date.now()): Promise<DashboardQueryResult> {
   try {
     const response = await fetchImpl('/api/v1/dashboard', { headers: { 'x-roles': 'RESEARCH_READ' } });
@@ -18,4 +24,9 @@ export async function fetchDashboard(fetchImpl: typeof fetch = fetch, now = Date
   } catch {
     return { status: 'UNAVAILABLE', error: 'Dashboard 服务暂时不可用', fetchedAt: now };
   }
+}
+
+export async function fetchConfiguredDashboard(fetchImpl: typeof fetch = fetch): Promise<DashboardQueryResult> {
+  if (import.meta.env?.VITE_USE_MOCK_API === 'true') return { data: mockDashboard, status: 'OK', fetchedAt: Date.now() };
+  return await fetchDashboard(fetchImpl);
 }

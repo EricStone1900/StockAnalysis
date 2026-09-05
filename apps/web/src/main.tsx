@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import type { DashboardData, DependencyStatus } from './dashboard.js';
 import { statusLabel } from './dashboard.js';
-import { fetchDashboard } from './dashboard-client.js';
+import { fetchConfiguredDashboard } from './dashboard-client.js';
 import { authStatus, routeFor } from './app-state.js';
 import './styles.css';
 
@@ -20,7 +20,7 @@ function ResultCard({ title, result }: { title: string; result: { status: Depend
 function App() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { fetchDashboard().then((result) => { if (result.data) setDashboard(result.data); if (result.error) setError(result.error); }); }, []);
+  useEffect(() => { fetchConfiguredDashboard().then((result) => { if (result.data) setDashboard(result.data); if (result.error) setError(result.error); }); }, []);
   const route = routeFor(window.location.pathname);
   return <main><header><h1>Stock Analysis</h1><p>平台状态总览 · {authStatus('web-user')}</p></header>{route === 'unknown' ? <div className="error" role="alert">页面不存在</div> : <ErrorBoundary>{error && <div className="error" role="alert">{error}</div>}{dashboard ? <div className="grid"><ResultCard title="最新 DataVersion" result={dashboard.dataVersion} /><ResultCard title="日分析快照" result={dashboard.dailyAnalysisSnapshot} />{Object.entries(dashboard.services).map(([name, result]) => <ResultCard key={name} title={name} result={result as { status: DependencyStatus; data?: unknown; errorCode?: string }} />)}</div> : !error && <p>正在加载…</p>}</ErrorBoundary>}</main>;
 }

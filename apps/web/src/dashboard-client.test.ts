@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchDashboard } from './dashboard-client.js';
+import { fetchConfiguredDashboard, fetchDashboard } from './dashboard-client.js';
 
 const response = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -14,5 +14,10 @@ describe('dashboard query', () => {
     const result = await fetchDashboard(async () => response(200, { dataVersion: { status: 'STALE' }, dailyAnalysisSnapshot: { status: 'UNAVAILABLE' }, services: {} }), 1);
     expect(result.status).toBe('STALE');
     expect(result.data?.dataVersion.status).toBe('STALE');
+  });
+
+  it('keeps the default path on the real BFF', async () => {
+    const result = await fetchConfiguredDashboard(async () => response(503, {}));
+    expect(result.status).toBe('UNAVAILABLE');
   });
 });
