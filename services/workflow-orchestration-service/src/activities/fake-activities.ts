@@ -4,6 +4,7 @@ import type { NewsActivityResult, NewsAnalysisActivities, NewsWorkflowRequest } 
 import type { MarketMonitorActivities, MarketMonitorRequest, MarketMonitorStepResult } from '../workflows/market-monitor.contract.js';
 import type { MarketRegimeActivities, MarketRegimeRequest, MarketRegimeStepResult } from '../workflows/market-regime.contract.js';
 import type { InvestmentDecisionActivities, InvestmentDecisionRequest, InvestmentDecisionStepResult } from '../workflows/investment-decision.contract.js';
+import type { HumanApprovalActivities, HumanApprovalRequest, HumanApprovalStepResult } from '../workflows/human-approval.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -112,6 +113,23 @@ export class FakeInvestmentDecisionActivities implements InvestmentDecisionActiv
     if (existing) return existing;
     const artifactRef = { uri: `artifact://${artifactName}/${request.payload.decisionAsOf}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
     const response = { correlationId: request.correlationId, result: { artifactRef, ...fields }, artifactRefs: [artifactRef] };
+    this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeHumanApprovalActivities implements HumanApprovalActivities {
+  private readonly completed = new Map<string, ActivityResponse<HumanApprovalStepResult>>();
+  public async loadApprovalBundle(request: HumanApprovalRequest): Promise<ActivityResponse<HumanApprovalStepResult>> { return await this.complete(request, 'approval-bundle'); }
+  public async recordApproval(request: HumanApprovalRequest): Promise<ActivityResponse<HumanApprovalStepResult>> { return await this.complete(request, 'approval-record'); }
+  public async refreshApprovalBundle(request: HumanApprovalRequest): Promise<ActivityResponse<HumanApprovalStepResult>> { return await this.complete(request, 'approval-refresh'); }
+
+  private async complete(request: HumanApprovalRequest, artifactName: string): Promise<ActivityResponse<HumanApprovalStepResult>> {
+    validateActivityRequest(request);
+    const existing = this.completed.get(request.idempotencyKey);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.decisionId}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
+    const response = { correlationId: request.correlationId, result: { artifactRef, recorded: artifactName !== 'approval-bundle' }, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
     return response;
   }
