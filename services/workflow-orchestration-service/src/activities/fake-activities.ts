@@ -3,6 +3,7 @@ import type { DailyQuantActivityResult, DailyQuantActivities, DailyQuantRequest 
 import type { NewsActivityResult, NewsAnalysisActivities, NewsWorkflowRequest } from '../workflows/news-analysis.contract.js';
 import type { MarketMonitorActivities, MarketMonitorRequest, MarketMonitorStepResult } from '../workflows/market-monitor.contract.js';
 import type { MarketRegimeActivities, MarketRegimeRequest, MarketRegimeStepResult } from '../workflows/market-regime.contract.js';
+import type { InvestmentDecisionActivities, InvestmentDecisionRequest, InvestmentDecisionStepResult } from '../workflows/investment-decision.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -92,6 +93,25 @@ export class FakeMarketRegimeActivities implements MarketRegimeActivities {
     if (existing) return existing;
     const artifactRef = { uri: `artifact://${artifactName}/${request.payload.asOf}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
     const response = { correlationId: request.correlationId, result: { artifactRef, changeDetected }, artifactRefs: [artifactRef] };
+    this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeInvestmentDecisionActivities implements InvestmentDecisionActivities {
+  private readonly completed = new Map<string, ActivityResponse<InvestmentDecisionStepResult>>();
+  public async validateDecisionGate(request: InvestmentDecisionRequest): Promise<ActivityResponse<InvestmentDecisionStepResult>> { return await this.complete(request, 'decision-gate', { allowed: request.payload.scenario !== 'BLOCKED' }); }
+  public async collectSpecialistEvidence(request: InvestmentDecisionRequest): Promise<ActivityResponse<InvestmentDecisionStepResult>> { return await this.complete(request, 'specialist-evidence', {}); }
+  public async runMainDecision(request: InvestmentDecisionRequest): Promise<ActivityResponse<InvestmentDecisionStepResult>> { return await this.complete(request, 'main-proposal', { proposalAction: request.payload.scenario === 'HOLD' ? 'HOLD' : 'REBALANCE' }); }
+  public async runRiskReview(request: InvestmentDecisionRequest): Promise<ActivityResponse<InvestmentDecisionStepResult>> { return await this.complete(request, 'risk-review', { verdict: request.payload.scenario === 'RISK_REJECT' ? 'REJECT' : 'PASS' }); }
+  public async runHardRiskEvaluation(request: InvestmentDecisionRequest): Promise<ActivityResponse<InvestmentDecisionStepResult>> { return await this.complete(request, 'hard-risk', { hardRiskPassed: request.payload.scenario !== 'HARD_REJECT' }); }
+
+  private async complete(request: InvestmentDecisionRequest, artifactName: string, fields: Omit<InvestmentDecisionStepResult, 'artifactRef'>): Promise<ActivityResponse<InvestmentDecisionStepResult>> {
+    validateActivityRequest(request);
+    const existing = this.completed.get(request.idempotencyKey);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.decisionAsOf}`, sha256: request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64) };
+    const response = { correlationId: request.correlationId, result: { artifactRef, ...fields }, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
     return response;
   }
