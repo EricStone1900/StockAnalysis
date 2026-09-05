@@ -1,5 +1,6 @@
 import { type ActivityRequest, type ActivityResponse, validateActivityRequest } from './activity-contract.js';
 import type { DailyQuantActivityResult, DailyQuantActivities, DailyQuantRequest } from '../workflows/daily-quant.contract.js';
+import type { NewsActivityResult, NewsAnalysisActivities, NewsWorkflowRequest } from '../workflows/news-analysis.contract.js';
 
 export interface HealthCheckPayload { dependency: string; }
 export interface HealthCheckResult { status: 'UP'; dependency: string; }
@@ -34,6 +35,25 @@ export class FakeDailyQuantActivities implements DailyQuantActivities {
     const existing = this.completed.get(request.idempotencyKey);
     if (existing) return existing;
     const response = { correlationId: request.correlationId, result: { dataVersionId: request.payload.dataVersionId, artifactRef }, artifactRefs: artifactRef ? [artifactRef] : [] };
+    this.completed.set(request.idempotencyKey, response);
+    return response;
+  }
+}
+
+export class FakeNewsAnalysisActivities implements NewsAnalysisActivities {
+  private readonly completed = new Map<string, ActivityResponse<NewsActivityResult>>();
+
+  public async collectNews(request: NewsWorkflowRequest): Promise<ActivityResponse<NewsActivityResult>> { return await this.complete(request, 'news-source'); }
+  public async buildCandidate(request: NewsWorkflowRequest): Promise<ActivityResponse<NewsActivityResult>> { return await this.complete(request, 'news-candidate'); }
+  public async analyzeNewsAgent(request: NewsWorkflowRequest): Promise<ActivityResponse<NewsActivityResult>> { return await this.complete(request, 'financial-news-assessment'); }
+  public async publishFinancialNewsEvent(request: NewsWorkflowRequest): Promise<ActivityResponse<NewsActivityResult>> { return await this.complete(request, 'financial-news-event'); }
+
+  private async complete(request: NewsWorkflowRequest, artifactName: string): Promise<ActivityResponse<NewsActivityResult>> {
+    validateActivityRequest(request);
+    const existing = this.completed.get(request.idempotencyKey);
+    if (existing) return existing;
+    const artifactRef = { uri: `artifact://${artifactName}/${request.payload.sourceWindow}`, sha256: `${request.idempotencyKey.replaceAll(/[^a-z0-9]/gi, '').padEnd(64, '0').slice(0, 64)}` };
+    const response = { correlationId: request.correlationId, result: { artifactRef }, artifactRefs: [artifactRef] };
     this.completed.set(request.idempotencyKey, response);
     return response;
   }
